@@ -188,7 +188,7 @@ const MentorDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 md:grid-cols-2">
-                {mentorType === 'coach' ? 
+                {(mentorType === 'coach' ? 
                   [
                     { name: 'TechFlow', founder: 'John Doe', lastSession: '2 days ago' },
                     { name: 'GreenStart', founder: 'Jane Smith', lastSession: '1 week ago' }
