@@ -1,19 +1,22 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Calendar, Users, MessageSquare, Clock, Settings, ExternalLink } from 'lucide-react';
+import { Calendar, Users, MessageSquare, Clock, Settings, ExternalLink, FileText } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
+import SharedMentorNotes from './SharedMentorNotes';
+import PostCallFollowUp from './PostCallFollowUp';
 
 const MentorDashboard = () => {
   const [calendlyLink, setCalendlyLink] = useState('');
   const [mentorType] = useState('coach'); // Can be 'coach', 'founder-mentor', 'expert'
+  const [showPostCallModal, setShowPostCallModal] = useState(false);
+  const [selectedCall, setSelectedCall] = useState(null);
 
   const handleUpdateCalendly = () => {
     toast({
@@ -28,6 +31,11 @@ const MentorDashboard = () => {
     return 'Various'; // for experts
   };
 
+  const openPostCallFollowUp = (call: any) => {
+    setSelectedCall(call);
+    setShowPostCallModal(true);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -38,10 +46,11 @@ const MentorDashboard = () => {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="availability">Availability</TabsTrigger>
           <TabsTrigger value="startups">My Startups</TabsTrigger>
+          <TabsTrigger value="notes">Shared Notes</TabsTrigger>
           <TabsTrigger value="feedback">Feedback</TabsTrigger>
           <TabsTrigger value="contact">Contact</TabsTrigger>
         </TabsList>
@@ -190,18 +199,18 @@ const MentorDashboard = () => {
               <div className="grid gap-4 md:grid-cols-2">
                 {(mentorType === 'coach' ? 
                   [
-                    { name: 'TechFlow', founder: 'John Doe', lastSession: '2 days ago' },
-                    { name: 'GreenStart', founder: 'Jane Smith', lastSession: '1 week ago' }
+                    { name: 'TechFlow', founder: 'John Doe', lastSession: '2 days ago', hasPostCall: true },
+                    { name: 'GreenStart', founder: 'Jane Smith', lastSession: '1 week ago', hasPostCall: false }
                   ] :
                   [
-                    { name: 'TechFlow', founder: 'John Doe', lastSession: '2 days ago' },
-                    { name: 'GreenStart', founder: 'Jane Smith', lastSession: '1 week ago' },
-                    { name: 'DataDrive', founder: 'Mike Johnson', lastSession: '3 days ago' },
-                    { name: 'HealthTech', founder: 'Sarah Wilson', lastSession: '5 days ago' },
-                    { name: 'EduStart', founder: 'Chris Brown', lastSession: '1 week ago' },
-                    { name: 'FinTech Pro', founder: 'Lisa Chen', lastSession: '4 days ago' },
-                    { name: 'AI Solutions', founder: 'David Kim', lastSession: '2 days ago' },
-                    { name: 'CleanEnergy', founder: 'Emma Davis', lastSession: '6 days ago' }
+                    { name: 'TechFlow', founder: 'John Doe', lastSession: '2 days ago', hasPostCall: true },
+                    { name: 'GreenStart', founder: 'Jane Smith', lastSession: '1 week ago', hasPostCall: false },
+                    { name: 'DataDrive', founder: 'Mike Johnson', lastSession: '3 days ago', hasPostCall: true },
+                    { name: 'HealthTech', founder: 'Sarah Wilson', lastSession: '5 days ago', hasPostCall: false },
+                    { name: 'EduStart', founder: 'Chris Brown', lastSession: '1 week ago', hasPostCall: true },
+                    { name: 'FinTech Pro', founder: 'Lisa Chen', lastSession: '4 days ago', hasPostCall: false },
+                    { name: 'AI Solutions', founder: 'David Kim', lastSession: '2 days ago', hasPostCall: true },
+                    { name: 'CleanEnergy', founder: 'Emma Davis', lastSession: '6 days ago', hasPostCall: false }
                   ].slice(0, mentorType === 'founder-mentor' ? 8 : 4)
                 ).map((startup, i) => (
                   <div key={i} className="p-4 border rounded space-y-3">
@@ -210,6 +219,9 @@ const MentorDashboard = () => {
                         <p className="font-medium">{startup.name}</p>
                         <p className="text-sm text-muted-foreground">{startup.founder}</p>
                         <p className="text-xs text-muted-foreground">Last session: {startup.lastSession}</p>
+                        {startup.hasPostCall && (
+                          <Badge className="bg-green-600 mt-1">Post-call available</Badge>
+                        )}
                       </div>
                     </div>
                     <div className="flex space-x-2">
@@ -218,12 +230,25 @@ const MentorDashboard = () => {
                         WhatsApp
                       </Button>
                       <Button size="sm" variant="outline">Schedule Call</Button>
+                      {startup.hasPostCall && (
+                        <Button 
+                          size="sm" 
+                          onClick={() => openPostCallFollowUp(startup)}
+                        >
+                          <FileText className="mr-1 h-3 w-3" />
+                          Post-Call
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="notes" className="space-y-4">
+          <SharedMentorNotes />
         </TabsContent>
 
         <TabsContent value="feedback" className="space-y-4">
@@ -281,6 +306,33 @@ const MentorDashboard = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Post-Call Follow-Up Modal */}
+      {showPostCallModal && selectedCall && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-background rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">Post-Call Follow-Up</h3>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowPostCallModal(false)}
+                >
+                  Close
+                </Button>
+              </div>
+              <PostCallFollowUp
+                callId="call-123"
+                startup={selectedCall.name}
+                mentor="Current Mentor"
+                date={selectedCall.lastSession}
+                userRole="mentor"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

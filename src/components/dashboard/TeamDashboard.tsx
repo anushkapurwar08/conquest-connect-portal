@@ -1,15 +1,19 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Calendar, Users, Phone, Clock, AlertCircle, CheckCircle } from 'lucide-react';
+import { Calendar, Users, Phone, Clock, AlertCircle, CheckCircle, Upload, FileText, Eye, MessageSquare } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const TeamDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedPod, setSelectedPod] = useState('all');
+  const [uploadingNotes, setUploadingNotes] = useState(false);
 
   const currentCalls = [
     { id: 1, startup: 'TechFlow', mentor: 'John Smith', status: 'ongoing', duration: '25 mins' },
@@ -31,10 +35,67 @@ const TeamDashboard = () => {
     { type: 'feedback', startup: 'HealthTech', mentor: 'Lisa Wong', time: '4 hours ago' },
   ];
 
+  const pods = [
+    { id: 'pod-a', name: 'Pod A', startups: ['TechFlow', 'GreenStart', 'DataDrive'] },
+    { id: 'pod-b', name: 'Pod B', startups: ['HealthTech', 'EduStart', 'FinTech Pro'] },
+    { id: 'pod-c', name: 'Pod C', startups: ['AI Solutions', 'CleanEnergy', 'FoodTech'] },
+  ];
+
+  const callsWithNotes = [
+    {
+      id: 1,
+      startup: 'TechFlow',
+      mentor: 'John Smith',
+      pod: 'Pod A',
+      date: 'Dec 20, 2024',
+      time: '2:00 PM',
+      duration: '45 mins',
+      hasNotes: true,
+      notesUploaded: true,
+      sharedWithMentors: false
+    },
+    {
+      id: 2,
+      startup: 'GreenStart',
+      mentor: 'Sarah Johnson',
+      pod: 'Pod A',
+      date: 'Dec 20, 2024',
+      time: '3:30 PM',
+      duration: '30 mins',
+      hasNotes: true,
+      notesUploaded: false,
+      sharedWithMentors: false
+    },
+    {
+      id: 3,
+      startup: 'HealthTech',
+      mentor: 'Lisa Wong',
+      pod: 'Pod B',
+      date: 'Dec 19, 2024',
+      time: '10:00 AM',
+      duration: '50 mins',
+      hasNotes: false,
+      notesUploaded: false,
+      sharedWithMentors: false
+    }
+  ];
+
   const filteredCalls = scheduledCalls.filter(call => 
     call.startup.toLowerCase().includes(searchTerm.toLowerCase()) ||
     call.mentor.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const filteredCallsByPod = callsWithNotes.filter(call => 
+    selectedPod === 'all' || call.pod === selectedPod
+  );
+
+  const handleUploadNotes = (callId: number) => {
+    setUploadingNotes(true);
+    // Simulate upload
+    setTimeout(() => {
+      setUploadingNotes(false);
+    }, 2000);
+  };
 
   return (
     <div className="space-y-6">
@@ -44,9 +105,10 @@ const TeamDashboard = () => {
       </div>
 
       <Tabs defaultValue="live" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="live">Live View</TabsTrigger>
           <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
+          <TabsTrigger value="pods">Pods & Notes</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="management">Management</TabsTrigger>
         </TabsList>
@@ -194,6 +256,150 @@ const TeamDashboard = () => {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="pods" className="space-y-4">
+          <div className="flex items-center space-x-4 mb-4">
+            <Label htmlFor="pod-filter">Filter by Pod:</Label>
+            <select 
+              id="pod-filter"
+              value={selectedPod}
+              onChange={(e) => setSelectedPod(e.target.value)}
+              className="bg-background border border-border rounded px-3 py-2"
+            >
+              <option value="all">All Pods</option>
+              {pods.map(pod => (
+                <option key={pod.id} value={pod.name}>{pod.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Pod Call Management & Notes</CardTitle>
+              <CardDescription>Track calls per pod and manage meeting notes</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Startup</TableHead>
+                    <TableHead>Mentor</TableHead>
+                    <TableHead>Pod</TableHead>
+                    <TableHead>Date & Time</TableHead>
+                    <TableHead>Duration</TableHead>
+                    <TableHead>Notes Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredCallsByPod.map((call) => (
+                    <TableRow key={call.id}>
+                      <TableCell>
+                        <div className="flex items-center space-x-2">
+                          <Avatar className="h-6 w-6">
+                            <AvatarFallback className="text-xs">{call.startup[0]}</AvatarFallback>
+                          </Avatar>
+                          <span className="font-medium">{call.startup}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{call.mentor}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{call.pod}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <p className="text-sm">{call.date}</p>
+                          <p className="text-xs text-muted-foreground">{call.time}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>{call.duration}</TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          {call.hasNotes ? (
+                            <Badge className="bg-green-600">Notes Available</Badge>
+                          ) : (
+                            <Badge variant="secondary">No Notes</Badge>
+                          )}
+                          {call.notesUploaded ? (
+                            <Badge className="bg-blue-600">Uploaded</Badge>
+                          ) : call.hasNotes ? (
+                            <Badge variant="destructive">Pending Upload</Badge>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          {call.hasNotes && !call.notesUploaded && (
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleUploadNotes(call.id)}
+                              disabled={uploadingNotes}
+                            >
+                              <Upload className="mr-1 h-3 w-3" />
+                              Upload
+                            </Button>
+                          )}
+                          {call.hasNotes && (
+                            <Button size="sm" variant="outline">
+                              <Eye className="mr-1 h-3 w-3" />
+                              View
+                            </Button>
+                          )}
+                          <Button size="sm" variant="outline">
+                            <MessageSquare className="mr-1 h-3 w-3" />
+                            Share
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            {pods.map(pod => (
+              <Card key={pod.id}>
+                <CardHeader>
+                  <CardTitle className="text-lg">{pod.name}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span>Total Calls This Week:</span>
+                      <span className="font-bold">
+                        {filteredCallsByPod.filter(call => call.pod === pod.name).length}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Notes Uploaded:</span>
+                      <span className="font-bold text-green-600">
+                        {filteredCallsByPod.filter(call => call.pod === pod.name && call.notesUploaded).length}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Pending Notes:</span>
+                      <span className="font-bold text-red-600">
+                        {filteredCallsByPod.filter(call => call.pod === pod.name && call.hasNotes && !call.notesUploaded).length}
+                      </span>
+                    </div>
+                    <div className="pt-2">
+                      <p className="text-xs text-muted-foreground mb-2">Startups:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {pod.startups.map(startup => (
+                          <Badge key={startup} variant="outline" className="text-xs">
+                            {startup}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-4">
