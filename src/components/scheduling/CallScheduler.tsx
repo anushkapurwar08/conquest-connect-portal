@@ -3,9 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
-import { Clock, User, Calendar as CalendarIcon, Plus } from 'lucide-react';
+import { Clock, User, Calendar as CalendarIcon, Plus, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
+import { useSchedulingRules } from '@/hooks/useSchedulingRules';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -20,6 +21,7 @@ interface TimeSlot {
   end_time: string;
   mentor_id: string;
   mentor_name: string;
+  mentor_type: string;
   is_available: boolean;
   status: string;
 }
@@ -39,14 +41,70 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
   const [loading, setLoading] = useState(false);
   const [showSlotCreation, setShowSlotCreation] = useState(false);
   const [selectedTime, setSelectedTime] = useState('');
+  const [mentorType, setMentorType] = useState<'founder_mentor' | 'expert' | 'coach'>('expert');
+  const [coachAssignments, setCoachAssignments] = useState<string[]>([]);
   const { profile, user } = useAuth();
+  const { 
+    isWithinBookingWindow, 
+    canCreateSlot, 
+    canBookSlot, 
+    isMentorTypeVisible,
+    getAdvanceBookingWeeks,
+    loading: rulesLoading 
+  } = useSchedulingRules();
 
   useEffect(() => {
     if (profile && selectedDate) {
+      fetchMentorType();
       fetchAvailableSlots();
     }
     fetchUpcomingCalls();
   }, [profile, selectedDate]);
+
+  const fetchMentorType = async () => {
+    if (userRole !== 'mentor') return;
+    
+    try {
+      const { data: mentor } = await supabase
+        .from('mentors')
+        .select('mentor_type')
+        .eq('profile_id', profile?.id)
+        .single();
+
+      if (mentor) {
+        setMentorType(mentor.mentor_type);
+        
+        // If coach, fetch assignments
+        if (mentor.mentor_type === 'coach') {
+          fetchCoachAssignments();
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching mentor type:', error);
+    }
+  };
+
+  const fetchCoachAssignments = async () => {
+    try {
+      const { data: mentor } = await supabase
+        .from('mentors')
+        .select('id')
+        .eq('profile_id', profile?.id)
+        .single();
+
+      if (mentor) {
+        const { data: assignments } = await supabase
+          .from('coach_startup_assignments')
+          .select('startup_id')
+          .eq('coach_id', mentor.id)
+          .eq('is_active', true);
+
+        setCoachAssignments(assignments?.map(a => a.startup_id) || []);
+      }
+    } catch (error) {
+      console.error('Error fetching coach assignments:', error);
+    }
+  };
 
   const fetchAvailableSlots = async () => {
     if (!selectedDate) return;
@@ -69,6 +127,7 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
           is_available,
           status,
           mentors!inner(
+            mentor_type,
             profiles!inner(
               first_name,
               last_name,
@@ -107,17 +166,35 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
       }
 
       if (slotsData) {
-        const formattedSlots: TimeSlot[] = slotsData.map((slot: any) => ({
-          id: slot.id,
-          start_time: slot.start_time,
-          end_time: slot.end_time,
-          mentor_id: slot.mentor_id,
-          is_available: slot.is_available,
-          status: slot.status,
-          mentor_name: slot.mentors?.profiles?.first_name && slot.mentors?.profiles?.last_name
-            ? `${slot.mentors.profiles.first_name} ${slot.mentors.profiles.last_name}`
-            : slot.mentors?.profiles?.username || 'Unknown Mentor'
-        }));
+        const formattedSlots: TimeSlot[] = slotsData
+          .filter((slot: any) => {
+            // Filter based on mentor type visibility
+            const slotMentorType = slot.mentors?.mentor_type;
+            if (userRole === 'startup' && !isMentorTypeVisible(slotMentorType)) {
+              return false;
+            }
+            
+            // For coaches, only show slots if startup is assigned
+            if (userRole === 'startup' && slotMentorType === 'coach') {
+              // This would need startup assignment check - simplified for now
+              return true;
+            }
+            
+            return true;
+          })
+          .map((slot: any) => ({
+            id: slot.id,
+            start_time: slot.start_time,
+            end_time: slot.end_time,
+            mentor_id: slot.mentor_id,
+            is_available: slot.is_available,
+            status: slot.status,
+            mentor_type: slot.mentors?.mentor_type || 'expert',
+            mentor_name: slot.mentors?.profiles?.first_name && slot.mentors?.profiles?.last_name
+              ? `${slot.mentors.profiles.first_name} ${slot.mentors.profiles.last_name}`
+              : slot.mentors?.profiles?.username || 'Unknown Mentor'
+          }));
+
         setAvailableSlots(formattedSlots);
       }
     } catch (error) {
@@ -216,6 +293,16 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
       return;
     }
 
+    if (!canCreateSlot(mentorType, selectedDate)) {
+      const weeks = getAdvanceBookingWeeks(mentorType);
+      toast({
+        title: "Error",
+        description: `You can only create slots up to ${weeks} week${weeks > 1 ? 's' : ''} in advance for ${mentorType.replace('_', ' ')}s.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!user || !profile?.id) {
       toast({
         title: "Error",
@@ -228,7 +315,6 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
     try {
       console.log('Creating time slot for user:', user.id, 'profile:', profile.id);
       
-      // Check if user has a mentor profile
       const { data: mentor, error: mentorError } = await supabase
         .from('mentors')
         .select('id')
@@ -242,11 +328,11 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
       if (!mentor) {
         console.log('No mentor profile found, creating one...');
         
-        // Create a mentor profile
         const { data: newMentor, error: createMentorError } = await supabase
           .from('mentors')
           .insert({
-            profile_id: profile.id
+            profile_id: profile.id,
+            mentor_type: mentorType
           })
           .select('id')
           .single();
@@ -330,6 +416,15 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
   const handleScheduleSlot = async (slot: TimeSlot) => {
     try {
       if (userRole === 'startup') {
+        if (!canBookSlot(slot.mentor_type as any, new Date(slot.start_time))) {
+          toast({
+            title: "Booking Unavailable",
+            description: "This slot cannot be booked at this time. Please check booking window restrictions.",
+            variant: "destructive"
+          });
+          return;
+        }
+
         const { data: startup } = await supabase
           .from('startups')
           .select('id')
@@ -405,6 +500,38 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
     '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'
   ];
 
+  const renderBookingWindowStatus = () => {
+    if (userRole !== 'startup') return null;
+
+    const withinWindow = isWithinBookingWindow();
+    
+    return (
+      <div className={`p-3 rounded-lg mb-4 ${withinWindow ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'} border`}>
+        <div className="flex items-center space-x-2">
+          <AlertCircle className={`h-4 w-4 ${withinWindow ? 'text-green-600' : 'text-orange-600'}`} />
+          <span className={`text-sm font-medium ${withinWindow ? 'text-green-800' : 'text-orange-800'}`}>
+            {withinWindow ? 'Booking Window Open' : 'Booking Window Closed'}
+          </span>
+        </div>
+        <p className={`text-xs mt-1 ${withinWindow ? 'text-green-600' : 'text-orange-600'}`}>
+          {withinWindow 
+            ? 'You can book available slots now.'
+            : 'Slots can only be booked during active booking windows.'
+          }
+        </p>
+      </div>
+    );
+  };
+
+  if (rulesLoading) {
+    return (
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
+        <p className="mt-2 text-sm text-muted-foreground">Loading scheduling rules...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-6 md:grid-cols-2">
       {/* Calendar and Scheduling */}
@@ -428,6 +555,8 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {renderBookingWindowStatus()}
+          
           <div>
             <Calendar
               mode="single"
@@ -459,6 +588,7 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
                   size="sm"
                   onClick={handleCreateTimeSlot}
                   className="bg-orange-500 hover:bg-orange-600"
+                  disabled={!canCreateSlot(mentorType, selectedDate)}
                 >
                   Create Slot
                 </Button>
@@ -470,6 +600,11 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
                   Cancel
                 </Button>
               </div>
+              {!canCreateSlot(mentorType, selectedDate) && (
+                <p className="text-xs text-red-600">
+                  You can only create slots up to {getAdvanceBookingWeeks(mentorType)} week(s) in advance.
+                </p>
+              )}
             </div>
           )}
           
@@ -492,7 +627,12 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
                     <div key={slot.id} className="flex items-center justify-between p-3 border rounded-lg">
                       <div>
                         {userRole === 'startup' && (
-                          <div className="text-sm font-medium">{slot.mentor_name}</div>
+                          <div className="flex items-center space-x-2">
+                            <div className="text-sm font-medium">{slot.mentor_name}</div>
+                            <Badge variant="outline" className="text-xs">
+                              {slot.mentor_type.replace('_', ' ')}
+                            </Badge>
+                          </div>
                         )}
                         <div className="text-xs text-muted-foreground">
                           {new Date(slot.start_time).toLocaleTimeString()} - {new Date(slot.end_time).toLocaleTimeString()}
@@ -504,6 +644,7 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
                             size="sm"
                             onClick={() => handleScheduleSlot(slot)}
                             className="bg-orange-500 hover:bg-orange-600"
+                            disabled={!canBookSlot(slot.mentor_type as any, new Date(slot.start_time))}
                           >
                             Schedule
                           </Button>

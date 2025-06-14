@@ -109,6 +109,78 @@ export type Database = {
         }
         Relationships: []
       }
+      booking_windows: {
+        Row: {
+          created_at: string | null
+          day_of_week: number
+          end_time: string
+          id: string
+          is_active: boolean | null
+          name: string
+          start_time: string
+        }
+        Insert: {
+          created_at?: string | null
+          day_of_week: number
+          end_time: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          start_time: string
+        }
+        Update: {
+          created_at?: string | null
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          start_time?: string
+        }
+        Relationships: []
+      }
+      coach_startup_assignments: {
+        Row: {
+          assigned_at: string | null
+          coach_id: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          startup_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          coach_id: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          startup_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          coach_id?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          startup_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_startup_assignments_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "mentors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_startup_assignments_startup_id_fkey"
+            columns: ["startup_id"]
+            isOneToOne: false
+            referencedRelation: "startups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           created_at: string | null
@@ -144,6 +216,38 @@ export type Database = {
             columns: ["startup_id"]
             isOneToOne: false
             referencedRelation: "startups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mentor_toggles: {
+        Row: {
+          id: string
+          is_visible: boolean | null
+          mentor_type: Database["public"]["Enums"]["mentor_type"]
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          is_visible?: boolean | null
+          mentor_type: Database["public"]["Enums"]["mentor_type"]
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          is_visible?: boolean | null
+          mentor_type?: Database["public"]["Enums"]["mentor_type"]
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentor_toggles_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -237,6 +341,41 @@ export type Database = {
           },
         ]
       }
+      notification_settings: {
+        Row: {
+          booking_confirmations: boolean | null
+          created_at: string | null
+          email_notifications: boolean | null
+          id: string
+          profile_id: string
+          slot_reminders: boolean | null
+        }
+        Insert: {
+          booking_confirmations?: boolean | null
+          created_at?: string | null
+          email_notifications?: boolean | null
+          id?: string
+          profile_id: string
+          slot_reminders?: boolean | null
+        }
+        Update: {
+          booking_confirmations?: boolean | null
+          created_at?: string | null
+          email_notifications?: boolean | null
+          id?: string
+          profile_id?: string
+          slot_reminders?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_settings_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           bio: string | null
@@ -290,6 +429,7 @@ export type Database = {
       }
       scheduling_rules: {
         Row: {
+          advance_booking_weeks: number | null
           allow_recurring: boolean | null
           created_at: string | null
           default_duration_minutes: number | null
@@ -298,8 +438,10 @@ export type Database = {
           max_sessions_per_week: number | null
           mentor_type: Database["public"]["Enums"]["mentor_type"]
           min_advance_booking_hours: number | null
+          slot_creation_window_weeks: number | null
         }
         Insert: {
+          advance_booking_weeks?: number | null
           allow_recurring?: boolean | null
           created_at?: string | null
           default_duration_minutes?: number | null
@@ -308,8 +450,10 @@ export type Database = {
           max_sessions_per_week?: number | null
           mentor_type: Database["public"]["Enums"]["mentor_type"]
           min_advance_booking_hours?: number | null
+          slot_creation_window_weeks?: number | null
         }
         Update: {
+          advance_booking_weeks?: number | null
           allow_recurring?: boolean | null
           created_at?: string | null
           default_duration_minutes?: number | null
@@ -318,6 +462,7 @@ export type Database = {
           max_sessions_per_week?: number | null
           mentor_type?: Database["public"]["Enums"]["mentor_type"]
           min_advance_booking_hours?: number | null
+          slot_creation_window_weeks?: number | null
         }
         Relationships: []
       }
