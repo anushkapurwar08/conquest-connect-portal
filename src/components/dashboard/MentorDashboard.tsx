@@ -1,13 +1,14 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Calendar, Users, MessageSquare, Clock, BookOpen, Phone, Star, Building } from 'lucide-react';
+import { Calendar, Users, MessageSquare, Clock, BookOpen, Phone, Building } from 'lucide-react';
 import StartupProfile from '@/components/startup/StartupProfile';
 import CallScheduler from '@/components/scheduling/CallScheduler';
-import PostCallFollowUp from './PostCallFollowUp';
+import SimpleChatFollowUp from './SimpleChatFollowUp';
 import SharedMentorNotes from './SharedMentorNotes';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,6 +18,8 @@ interface Startup {
   name: string;
   description: string;
   logoUrl?: string;
+  industry?: string;
+  stage?: string;
 }
 
 interface Session {
@@ -29,16 +32,16 @@ interface Session {
 const MentorDashboard = () => {
   const [selectedStartup, setSelectedStartup] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
-  const [startups, setStartups] = useState<Startup[]>([]);
+  const [assignedStartups, setAssignedStartups] = useState<Startup[]>([]);
+  const [allStartups, setAllStartups] = useState<Startup[]>([]);
   const [upcomingSessions, setUpcomingSessions] = useState<Session[]>([]);
   const [recentActivity, setRecentActivity] = useState<Session[]>([]);
   const [stats, setStats] = useState({
     totalSessions: 0,
-    availableHours: 10,
-    startupsCount: 0,
-    rating: 4.8
+    startupsCount: 0
   });
   const [loading, setLoading] = useState(true);
+  const [showCohort, setShowCohort] = useState(false);
   const { profile } = useAuth();
 
   useEffect(() => {
@@ -54,7 +57,7 @@ const MentorDashboard = () => {
       // Get mentor info
       const { data: mentor } = await supabase
         .from('mentors')
-        .select('id, availability_hours')
+        .select('id')
         .eq('profile_id', profile?.id)
         .single();
 
@@ -63,14 +66,16 @@ const MentorDashboard = () => {
         return;
       }
 
-      // Fetch startups this mentor has worked with
+      // Fetch assigned startups this mentor has worked with
       const { data: appointmentsData } = await supabase
         .from('appointments')
         .select(`
           startups!inner(
             id,
             startup_name,
-            description
+            description,
+            industry,
+            stage
           )
         `)
         .eq('mentor_id', mentor.id);
@@ -83,11 +88,30 @@ const MentorDashboard = () => {
               id: apt.startups.id,
               name: apt.startups.startup_name,
               description: apt.startups.description || 'No description available',
+              industry: apt.startups.industry,
+              stage: apt.startups.stage,
               logoUrl: '/placeholder.svg'
             });
           }
         });
-        setStartups(Array.from(uniqueStartups.values()));
+        setAssignedStartups(Array.from(uniqueStartups.values()));
+      }
+
+      // Fetch all startups for cohort view
+      const { data: allStartupsData } = await supabase
+        .from('startups')
+        .select('id, startup_name, description, industry, stage');
+
+      if (allStartupsData) {
+        const formattedStartups: Startup[] = allStartupsData.map((startup: any) => ({
+          id: startup.id,
+          name: startup.startup_name,
+          description: startup.description || 'No description available',
+          industry: startup.industry,
+          stage: startup.stage,
+          logoUrl: '/placeholder.svg'
+        }));
+        setAllStartups(formattedStartups);
       }
 
       // Fetch upcoming sessions
@@ -146,9 +170,7 @@ const MentorDashboard = () => {
 
       setStats({
         totalSessions: totalSessions || 0,
-        availableHours: 10,
-        startupsCount: uniqueStartups.size || 0,
-        rating: 4.8
+        startupsCount: uniqueStartups.size || 0
       });
 
     } catch (error) {
@@ -160,6 +182,8 @@ const MentorDashboard = () => {
 
   const handleScheduleCall = (date: Date, time: string, startup: string) => {
     console.log(`Scheduling call with ${startup} on ${date.toDateString()} at ${time}`);
+    // Refresh data to show updated upcoming calls
+    fetchMentorData();
   };
 
   if (selectedStartup) {
@@ -195,14 +219,14 @@ const MentorDashboard = () => {
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
-          <TabsTrigger value="startups">Startups</TabsTrigger>
+          <TabsTrigger value="startups">My Startups</TabsTrigger>
           <TabsTrigger value="notes">Shared Notes</TabsTrigger>
-          <TabsTrigger value="follow-up">Post-Call</TabsTrigger>
+          <TabsTrigger value="follow-up">Chat</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
           {/* Quick Stats */}
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Mentoring Sessions</CardTitle>
@@ -215,32 +239,12 @@ const MentorDashboard = () => {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Available Hours</CardTitle>
-                <Clock className="h-4 w-4 text-orange-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.availableHours}</div>
-                <p className="text-xs text-muted-foreground">Hours per week</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Startups Mentored</CardTitle>
+                <CardTitle className="text-sm font-medium">Assigned Startups</CardTitle>
                 <BookOpen className="h-4 w-4 text-orange-500" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stats.startupsCount}</div>
                 <p className="text-xs text-muted-foreground">Active startups</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Rating</CardTitle>
-                <Star className="h-4 w-4 text-orange-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.rating}</div>
-                <p className="text-xs text-muted-foreground">Out of 5</p>
               </CardContent>
             </Card>
           </div>
@@ -319,15 +323,28 @@ const MentorDashboard = () => {
         </TabsContent>
 
         <TabsContent value="startups" className="space-y-6">
-          {startups.length === 0 ? (
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold">My Assigned Startups</h3>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowCohort(!showCohort)}
+              className="border-orange-500 text-orange-600 hover:bg-orange-50"
+            >
+              {showCohort ? 'View My Startups' : 'View Cohort'}
+            </Button>
+          </div>
+
+          {(showCohort ? allStartups : assignedStartups).length === 0 ? (
             <Card>
               <CardContent className="text-center py-8">
-                <p className="text-muted-foreground">No startups to display yet</p>
+                <p className="text-muted-foreground">
+                  {showCohort ? 'No startups in cohort' : 'No assigned startups'}
+                </p>
               </CardContent>
             </Card>
           ) : (
             <div className="grid gap-6 md:grid-cols-3">
-              {startups.map((startup) => (
+              {(showCohort ? allStartups : assignedStartups).map((startup) => (
                 <Card key={startup.id} className="hover:bg-accent cursor-pointer" onClick={() => setSelectedStartup(startup.id)}>
                   <CardHeader>
                     <CardTitle className="flex items-center space-x-2">
@@ -339,7 +356,13 @@ const MentorDashboard = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm text-muted-foreground">{startup.description}</p>
+                    <p className="text-sm text-muted-foreground mb-2">{startup.description}</p>
+                    {startup.industry && (
+                      <Badge variant="secondary" className="mr-1 mb-1">{startup.industry}</Badge>
+                    )}
+                    {startup.stage && (
+                      <Badge variant="outline">{startup.stage}</Badge>
+                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -352,13 +375,7 @@ const MentorDashboard = () => {
         </TabsContent>
 
         <TabsContent value="follow-up">
-          <PostCallFollowUp 
-            userRole="mentor" 
-            callId="mock-call-id"
-            startup="TechStart Inc."
-            mentor="John Smith"
-            date="2024-01-15"
-          />
+          <SimpleChatFollowUp userRole="mentor" />
         </TabsContent>
       </Tabs>
     </div>
