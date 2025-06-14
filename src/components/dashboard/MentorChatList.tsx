@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,229 +10,169 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 import SimpleChatFollowUp from './SimpleChatFollowUp';
 
-interface Conversation {
+interface ConversationWithStartup {
   id: string;
   startup_id: string;
+  mentor_id: string;
   created_at: string;
   updated_at: string;
-  startup: {
-    startup_name: string;
-    description: string;
-    stage: string;
-    profile: {
-      first_name: string | null;
-      last_name: string | null;
-      username: string;
-    } | null;
-  } | null;
-  messages: Array<{
-    id: string;
-    content: string;
-    created_at: string;
-    sender_profile_id: string;
-  }>;
+  startup_name: string;
+  startup_founder_name: string;
+  startup_stage: string;
+  last_message: string;
+  last_message_time: string;
+  message_count: number;
+  unread_count: number;
 }
 
 const MentorChatList: React.FC = () => {
   const { profile } = useAuth();
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
-  const [mentorId, setMentorId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<ConversationWithStartup[]>([]);
+  const [selectedConversation, setSelectedConversation] = useState<ConversationWithStartup | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (profile?.id) {
-      console.log('MentorChatList: Starting with profile ID:', profile.id);
-      fetchMentorId();
+      fetchMentorConversations();
     }
   }, [profile?.id]);
 
-  useEffect(() => {
-    if (mentorId) {
-      console.log('MentorChatList: Mentor ID found, fetching conversations:', mentorId);
-      fetchConversations();
-    }
-  }, [mentorId]);
-
-  const fetchMentorId = async () => {
-    if (!profile?.id) {
-      setError('No profile found. Please ensure you are logged in.');
-      return;
-    }
+  const fetchMentorConversations = async () => {
+    if (!profile?.id) return;
 
     try {
-      console.log('MentorChatList: Fetching mentor ID for profile:', profile.id);
-      
-      const { data: mentor, error } = await supabase
+      setLoading(true);
+      console.log('MentorChatList: Fetching conversations for profile:', profile.id);
+
+      // First get the mentor record
+      const { data: mentor, error: mentorError } = await supabase
         .from('mentors')
-        .select('id, mentor_type, profile_id')
+        .select('id')
         .eq('profile_id', profile.id)
         .maybeSingle();
 
-      if (error) {
-        console.error('MentorChatList: Error fetching mentor:', error);
-        setError(`Database error: ${error.message}`);
-        toast({
-          title: "Error",
-          description: "Failed to load mentor profile. Please contact support.",
-          variant: "destructive"
-        });
+      if (mentorError) {
+        console.error('MentorChatList: Error fetching mentor:', mentorError);
+        setError(`Failed to load mentor profile: ${mentorError.message}`);
         return;
       }
 
       if (!mentor) {
-        console.log('MentorChatList: No mentor record found for profile:', profile.id);
-        setError('No mentor record found. Please ensure your account is set up as a mentor.');
-        toast({
-          title: "Mentor Profile Not Found",
-          description: "Your account is not set up as a mentor. Please contact support to set up your mentor profile.",
-          variant: "destructive"
-        });
+        console.log('MentorChatList: No mentor record found');
+        setError('No mentor profile found. Please ensure your account is set up as a mentor.');
         return;
       }
 
-      console.log('MentorChatList: Found mentor:', mentor);
-      setMentorId(mentor.id);
-      setError(null);
-    } catch (error) {
-      console.error('MentorChatList: Unexpected error fetching mentor ID:', error);
-      setError('An unexpected error occurred while loading your mentor profile.');
-    }
-  };
+      console.log('MentorChatList: Found mentor ID:', mentor.id);
 
-  const fetchConversations = async () => {
-    if (!mentorId) return;
-
-    try {
-      setLoading(true);
-      console.log('MentorChatList: Fetching conversations for mentor:', mentorId);
-
-      const { data: conversationsData, error } = await supabase
+      // Now get conversations with startup details and message info
+      const { data: conversationsData, error: conversationsError } = await supabase
         .from('conversations')
         .select(`
           id,
           startup_id,
+          mentor_id,
           created_at,
           updated_at,
           startups!inner(
             startup_name,
-            description,
             stage,
             profiles!inner(
               first_name,
               last_name,
               username
             )
-          ),
-          messages(
-            id,
-            content,
-            created_at,
-            sender_profile_id
           )
         `)
-        .eq('mentor_id', mentorId)
+        .eq('mentor_id', mentor.id)
         .order('updated_at', { ascending: false });
 
-      if (error) {
-        console.error('MentorChatList: Error fetching conversations:', error);
-        setError(`Failed to load conversations: ${error.message}`);
-        toast({
-          title: "Error",
-          description: "Failed to load conversations. Please try again.",
-          variant: "destructive"
-        });
+      if (conversationsError) {
+        console.error('MentorChatList: Error fetching conversations:', conversationsError);
+        setError(`Failed to load conversations: ${conversationsError.message}`);
         return;
       }
 
-      console.log('MentorChatList: Fetched conversations:', conversationsData);
+      console.log('MentorChatList: Raw conversations data:', conversationsData);
 
-      // Transform the data to match our interface
-      const transformedConversations: Conversation[] = (conversationsData || []).map(conv => ({
-        id: conv.id,
-        startup_id: conv.startup_id,
-        created_at: conv.created_at,
-        updated_at: conv.updated_at,
-        startup: conv.startups ? {
-          startup_name: conv.startups.startup_name,
-          description: conv.startups.description,
-          stage: conv.startups.stage,
-          profile: conv.startups.profiles ? {
-            first_name: conv.startups.profiles.first_name,
-            last_name: conv.startups.profiles.last_name,
-            username: conv.startups.profiles.username
-          } : null
-        } : null,
-        messages: (conv.messages || []).sort((a, b) => 
-          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        )
-      }));
+      if (!conversationsData || conversationsData.length === 0) {
+        console.log('MentorChatList: No conversations found');
+        setConversations([]);
+        setError(null);
+        return;
+      }
 
-      setConversations(transformedConversations);
+      // Get message info for each conversation
+      const conversationsWithMessages = await Promise.all(
+        conversationsData.map(async (conv) => {
+          // Get last message and count
+          const { data: messages, error: messagesError } = await supabase
+            .from('messages')
+            .select('content, created_at, sender_profile_id')
+            .eq('conversation_id', conv.id)
+            .order('created_at', { ascending: false });
+
+          if (messagesError) {
+            console.error('Error fetching messages for conversation:', conv.id, messagesError);
+          }
+
+          const lastMessage = messages && messages.length > 0 ? messages[0] : null;
+          const messageCount = messages ? messages.length : 0;
+          
+          // Count unread messages (messages from startup to mentor that are "unread")
+          // For simplicity, we'll just show if there are any messages
+          const unreadCount = messages ? messages.filter(m => m.sender_profile_id !== profile.id).length : 0;
+
+          const startup = conv.startups;
+          const startupProfile = startup?.profiles;
+          
+          let founderName = 'Unknown';
+          if (startupProfile) {
+            if (startupProfile.first_name && startupProfile.last_name) {
+              founderName = `${startupProfile.first_name} ${startupProfile.last_name}`;
+            } else {
+              founderName = startupProfile.username;
+            }
+          }
+
+          return {
+            id: conv.id,
+            startup_id: conv.startup_id,
+            mentor_id: conv.mentor_id,
+            created_at: conv.created_at,
+            updated_at: conv.updated_at,
+            startup_name: startup?.startup_name || 'Unknown Startup',
+            startup_founder_name: founderName,
+            startup_stage: startup?.stage || 'Unknown',
+            last_message: lastMessage ? 
+              (lastMessage.content.length > 50 ? `${lastMessage.content.substring(0, 50)}...` : lastMessage.content) : 
+              'No messages yet',
+            last_message_time: lastMessage ? lastMessage.created_at : conv.created_at,
+            message_count: messageCount,
+            unread_count: unreadCount
+          };
+        })
+      );
+
+      console.log('MentorChatList: Processed conversations:', conversationsWithMessages);
+      setConversations(conversationsWithMessages);
       setError(null);
     } catch (error) {
-      console.error('MentorChatList: Unexpected error fetching conversations:', error);
+      console.error('MentorChatList: Unexpected error:', error);
       setError('An unexpected error occurred while loading conversations.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSelectConversation = (conversation: Conversation) => {
-    console.log('MentorChatList: Selecting conversation:', {
+  const handleSelectConversation = (conversation: ConversationWithStartup) => {
+    console.log('MentorChatList: Opening conversation:', {
       conversationId: conversation.id,
-      startupId: conversation.startup_id,
-      mentorId: mentorId
+      mentorId: conversation.mentor_id,
+      startupId: conversation.startup_id
     });
-    
-    if (!mentorId) {
-      console.error('MentorChatList: Cannot select conversation - mentorId is null');
-      toast({
-        title: "Error",
-        description: "Mentor ID not found. Please refresh the page.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!conversation.startup_id) {
-      console.error('MentorChatList: Cannot select conversation - startup_id is null');
-      toast({
-        title: "Error",
-        description: "Startup ID not found for this conversation.",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setSelectedConversation(conversation);
-  };
-
-  const getStartupDisplayName = (conversation: Conversation) => {
-    if (!conversation.startup?.profile) return conversation.startup?.startup_name || 'Unknown Startup';
-    
-    const profile = conversation.startup.profile;
-    if (profile.first_name && profile.last_name) {
-      return `${profile.first_name} ${profile.last_name}`;
-    }
-    return profile.username;
-  };
-
-  const getLastMessage = (conversation: Conversation) => {
-    if (conversation.messages.length === 0) return 'No messages yet';
-    
-    const lastMessage = conversation.messages[conversation.messages.length - 1];
-    return lastMessage.content.length > 50 
-      ? `${lastMessage.content.substring(0, 50)}...`
-      : lastMessage.content;
-  };
-
-  const getMessageTime = (conversation: Conversation) => {
-    if (conversation.messages.length === 0) return new Date(conversation.created_at);
-    
-    const lastMessage = conversation.messages[conversation.messages.length - 1];
-    return new Date(lastMessage.created_at);
   };
 
   if (error) {
@@ -240,21 +181,9 @@ const MentorChatList: React.FC = () => {
         <CardContent className="p-6">
           <div className="text-center py-8">
             <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-500" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Unable to Load Mentor Chat</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Unable to Load Conversations</h3>
             <p className="text-red-600 mb-4">{error}</p>
-            <div className="space-y-2 text-sm text-gray-600">
-              <p><strong>Debug Info:</strong></p>
-              <p>Profile ID: {profile?.id || 'Not found'}</p>
-              <p>Profile Role: {profile?.role || 'Not found'}</p>
-              <p>Mentor ID: {mentorId || 'Not found'}</p>
-            </div>
-            <Button 
-              onClick={() => {
-                setError(null);
-                fetchMentorId();
-              }}
-              className="mt-4"
-            >
+            <Button onClick={fetchMentorConversations} className="mt-4">
               Try Again
             </Button>
           </div>
@@ -274,12 +203,8 @@ const MentorChatList: React.FC = () => {
     );
   }
 
-  if (selectedConversation && mentorId) {
-    console.log('MentorChatList: Rendering SimpleChatFollowUp with:', {
-      mentorId,
-      startupId: selectedConversation.startup_id
-    });
-
+  // Show selected conversation chat
+  if (selectedConversation) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -291,19 +216,20 @@ const MentorChatList: React.FC = () => {
             <span>← Back to Conversations</span>
           </Button>
           <div className="text-sm text-muted-foreground">
-            Chatting with {getStartupDisplayName(selectedConversation)}
+            Chatting with {selectedConversation.startup_founder_name} from {selectedConversation.startup_name}
           </div>
         </div>
         
         <SimpleChatFollowUp
           userRole="mentor"
-          mentorId={mentorId}
+          mentorId={selectedConversation.mentor_id}
           startupId={selectedConversation.startup_id}
         />
       </div>
     );
   }
 
+  // Show conversations list
   return (
     <Card>
       <CardHeader>
@@ -312,7 +238,7 @@ const MentorChatList: React.FC = () => {
           <span>Your Conversations</span>
         </CardTitle>
         <CardDescription>
-          Manage conversations with startups seeking your mentorship
+          Messages from startups seeking your mentorship
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -321,7 +247,7 @@ const MentorChatList: React.FC = () => {
             <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No conversations yet</h3>
             <p className="text-gray-500">
-              When startups reach out to you, their conversations will appear here.
+              When startups message you, their conversations will appear here.
             </p>
           </div>
         ) : (
@@ -329,47 +255,58 @@ const MentorChatList: React.FC = () => {
             {conversations.map((conversation) => (
               <Card 
                 key={conversation.id}
-                className="cursor-pointer transition-all hover:shadow-md"
+                className="cursor-pointer transition-all hover:shadow-md border-l-4 border-l-transparent hover:border-l-orange-500"
                 onClick={() => handleSelectConversation(conversation)}
               >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start space-x-3 flex-1">
-                      <Avatar className="h-10 w-10">
-                        <AvatarFallback className="bg-blue-100 text-blue-600">
-                          <User className="h-5 w-5" />
+                      <Avatar className="h-12 w-12">
+                        <AvatarFallback className="bg-orange-100 text-orange-600">
+                          {conversation.startup_founder_name.split(' ').map(n => n[0]).join('').toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                       
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-2">
-                          <h4 className="font-medium truncate">
-                            {getStartupDisplayName(conversation)}
+                        <div className="flex items-center space-x-2 mb-1">
+                          <h4 className="font-semibold text-gray-900">
+                            {conversation.startup_founder_name}
                           </h4>
-                          {conversation.startup?.stage && (
-                            <Badge variant="outline" className="text-xs">
-                              {conversation.startup.stage}
+                          {conversation.unread_count > 0 && (
+                            <Badge className="bg-orange-500 text-white text-xs">
+                              {conversation.unread_count} new
                             </Badge>
                           )}
                         </div>
                         
-                        {conversation.startup?.startup_name && (
-                          <p className="text-sm text-muted-foreground">
-                            {conversation.startup.startup_name}
-                          </p>
-                        )}
-                        
-                        <p className="text-sm text-gray-600 mt-1 truncate">
-                          {getLastMessage(conversation)}
+                        <p className="text-sm font-medium text-gray-700 mb-1">
+                          {conversation.startup_name}
                         </p>
                         
-                        <div className="flex items-center space-x-4 mt-2 text-xs text-muted-foreground">
+                        <Badge variant="outline" className="text-xs mb-2">
+                          {conversation.startup_stage}
+                        </Badge>
+                        
+                        <p className="text-sm text-gray-600 mb-2">
+                          {conversation.last_message}
+                        </p>
+                        
+                        <div className="flex items-center space-x-4 text-xs text-muted-foreground">
                           <div className="flex items-center space-x-1">
                             <Clock className="h-3 w-3" />
-                            <span>{getMessageTime(conversation).toLocaleDateString()}</span>
+                            <span>{new Date(conversation.last_message_time).toLocaleDateString()}</span>
                           </div>
-                          <span>{conversation.messages.length} messages</span>
+                          <span>{conversation.message_count} messages</span>
                         </div>
+                      </div>
+                    </div>
+                    
+                    <div className="text-right">
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(conversation.last_message_time).toLocaleTimeString([], { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
                       </div>
                     </div>
                   </div>
