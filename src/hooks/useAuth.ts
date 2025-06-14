@@ -95,8 +95,8 @@ export const useAuth = () => {
 
       console.log('Credentials verified, proceeding with Supabase auth');
 
-      // Create or sign in user with Supabase Auth
-      const email = `${username}@conquest.local`;
+      // Create or sign in user with Supabase Auth using a valid email format
+      const email = `${username}@conquest.example.com`;
       const supabasePassword = `${username}_conquest_2024`;
       
       // Try to sign in first
@@ -114,6 +114,7 @@ export const useAuth = () => {
           email,
           password: supabasePassword,
           options: {
+            emailRedirectTo: `${window.location.origin}/dashboard`,
             data: {
               username: credentials.username,
               role: credentials.role,
