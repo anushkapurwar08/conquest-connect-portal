@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
-import { Clock, User, Calendar as CalendarIcon } from 'lucide-react';
+import { Clock, User, Calendar as CalendarIcon, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,6 +22,7 @@ interface TimeSlot {
   mentor_id: string;
   mentor_name: string;
   is_available: boolean;
+  status: string;
 }
 
 interface UpcomingCall {
@@ -37,6 +38,8 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
   const [upcomingCalls, setUpcomingCalls] = useState<UpcomingCall[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showSlotCreation, setShowSlotCreation] = useState(false);
+  const [selectedTime, setSelectedTime] = useState('');
   const { profile } = useAuth();
 
   useEffect(() => {
@@ -57,7 +60,7 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
       const endOfDay = new Date(selectedDate);
       endOfDay.setHours(23, 59, 59, 999);
 
-      const { data: slotsData } = await supabase
+      let query = supabase
         .from('time_slots')
         .select(`
           id,
@@ -74,11 +77,25 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
             )
           )
         `)
-        .eq('is_available', true)
         .eq('status', 'available')
         .gte('start_time', startOfDay.toISOString())
         .lte('start_time', endOfDay.toISOString())
         .order('start_time', { ascending: true });
+
+      // For mentors, show only their own slots
+      if (userRole === 'mentor') {
+        const { data: mentor } = await supabase
+          .from('mentors')
+          .select('id')
+          .eq('profile_id', profile?.id)
+          .single();
+        
+        if (mentor) {
+          query = query.eq('mentor_id', mentor.id);
+        }
+      }
+
+      const { data: slotsData } = await query;
 
       if (slotsData) {
         const formattedSlots: TimeSlot[] = slotsData.map((slot: any) => ({
@@ -87,6 +104,7 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
           end_time: slot.end_time,
           mentor_id: slot.mentor_id,
           is_available: slot.is_available,
+          status: slot.status,
           mentor_name: slot.mentors?.profiles?.first_name && slot.mentors?.profiles?.last_name
             ? `${slot.mentors.profiles.first_name} ${slot.mentors.profiles.last_name}`
             : slot.mentors?.profiles?.username || 'Unknown Mentor'
@@ -169,10 +187,72 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
     }
   };
 
+  const handleCreateTimeSlot = async () => {
+    if (!selectedDate || !selectedTime) {
+      toast({
+        title: "Error",
+        description: "Please select a date and time for the slot.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const { data: mentor } = await supabase
+        .from('mentors')
+        .select('id')
+        .eq('profile_id', profile?.id)
+        .single();
+
+      if (!mentor) {
+        toast({
+          title: "Error",
+          description: "Mentor profile not found.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const [hours, minutes] = selectedTime.split(':');
+      const startTime = new Date(selectedDate);
+      startTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      
+      const endTime = new Date(startTime);
+      endTime.setHours(startTime.getHours() + 1); // 1-hour slots
+
+      const { error } = await supabase
+        .from('time_slots')
+        .insert({
+          mentor_id: mentor.id,
+          start_time: startTime.toISOString(),
+          end_time: endTime.toISOString(),
+          is_available: true,
+          status: 'available'
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Time Slot Created",
+        description: "Your available time slot has been created successfully.",
+      });
+
+      setSelectedTime('');
+      setShowSlotCreation(false);
+      fetchAvailableSlots();
+    } catch (error) {
+      console.error('Error creating time slot:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create time slot. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleScheduleSlot = async (slot: TimeSlot) => {
     try {
       if (userRole === 'startup') {
-        // For startups, schedule directly
         const { data: startup } = await supabase
           .from('startups')
           .select('id')
@@ -205,15 +285,10 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
           title: "Call Scheduled",
           description: `Your call with ${slot.mentor_name} has been scheduled successfully.`,
         });
-      } else {
-        // For mentors, use the callback
-        const date = new Date(slot.start_time);
-        const time = date.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
-        onScheduleCall?.(date, time, slot.mentor_name);
-      }
 
-      fetchUpcomingCalls();
-      fetchAvailableSlots();
+        fetchUpcomingCalls();
+        fetchAvailableSlots();
+      }
     } catch (error) {
       console.error('Error scheduling call:', error);
       toast({
@@ -224,14 +299,55 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
     }
   };
 
+  const handleDeleteSlot = async (slotId: string) => {
+    try {
+      const { error } = await supabase
+        .from('time_slots')
+        .delete()
+        .eq('id', slotId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Time Slot Deleted",
+        description: "The time slot has been removed successfully.",
+      });
+
+      fetchAvailableSlots();
+    } catch (error) {
+      console.error('Error deleting time slot:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete time slot. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const timeSlots = [
+    '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'
+  ];
+
   return (
     <div className="grid gap-6 md:grid-cols-2">
       {/* Calendar and Scheduling */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2 text-orange-600">
-            <CalendarIcon className="h-5 w-5" />
-            <span>Schedule New Call</span>
+          <CardTitle className="flex items-center justify-between text-orange-600">
+            <div className="flex items-center space-x-2">
+              <CalendarIcon className="h-5 w-5" />
+              <span>{userRole === 'mentor' ? 'Manage Available Slots' : 'Schedule New Call'}</span>
+            </div>
+            {userRole === 'mentor' && (
+              <Button
+                size="sm"
+                onClick={() => setShowSlotCreation(!showSlotCreation)}
+                className="bg-orange-500 hover:bg-orange-600"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add Slot
+              </Button>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -244,11 +360,46 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
               disabled={(date) => date < new Date()}
             />
           </div>
+
+          {userRole === 'mentor' && showSlotCreation && selectedDate && (
+            <div className="space-y-4 p-4 border rounded-lg bg-orange-50">
+              <h4 className="font-medium">Create Available Slot for {format(selectedDate, 'MMM dd, yyyy')}</h4>
+              <div>
+                <label className="text-sm font-medium">Select Time:</label>
+                <select
+                  value={selectedTime}
+                  onChange={(e) => setSelectedTime(e.target.value)}
+                  className="w-full mt-1 p-2 border rounded-md"
+                >
+                  <option value="">Select time...</option>
+                  {timeSlots.map((time) => (
+                    <option key={time} value={time}>{time}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex space-x-2">
+                <Button
+                  size="sm"
+                  onClick={handleCreateTimeSlot}
+                  className="bg-orange-500 hover:bg-orange-600"
+                >
+                  Create Slot
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowSlotCreation(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
           
           {selectedDate && (
             <div>
               <h4 className="font-medium mb-2">
-                Available Slots for {format(selectedDate, 'MMM dd, yyyy')}
+                {userRole === 'mentor' ? 'Your Available Slots' : 'Available Slots'} for {format(selectedDate, 'MMM dd, yyyy')}
               </h4>
               {loading ? (
                 <div className="text-center py-4">
@@ -256,25 +407,39 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
                 </div>
               ) : availableSlots.length === 0 ? (
                 <p className="text-muted-foreground text-center py-4">
-                  No available slots for this date
+                  {userRole === 'mentor' ? 'No slots created for this date' : 'No available slots for this date'}
                 </p>
               ) : (
                 <div className="space-y-2">
                   {availableSlots.map((slot) => (
                     <div key={slot.id} className="flex items-center justify-between p-3 border rounded-lg">
                       <div>
-                        <div className="text-sm font-medium">{slot.mentor_name}</div>
+                        {userRole === 'startup' && (
+                          <div className="text-sm font-medium">{slot.mentor_name}</div>
+                        )}
                         <div className="text-xs text-muted-foreground">
                           {new Date(slot.start_time).toLocaleTimeString()} - {new Date(slot.end_time).toLocaleTimeString()}
                         </div>
                       </div>
-                      <Button
-                        size="sm"
-                        onClick={() => handleScheduleSlot(slot)}
-                        className="bg-orange-500 hover:bg-orange-600"
-                      >
-                        Schedule
-                      </Button>
+                      <div className="flex space-x-2">
+                        {userRole === 'startup' ? (
+                          <Button
+                            size="sm"
+                            onClick={() => handleScheduleSlot(slot)}
+                            className="bg-orange-500 hover:bg-orange-600"
+                          >
+                            Schedule
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDeleteSlot(slot.id)}
+                          >
+                            Delete
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -182,76 +182,6 @@ const MentorDashboard = () => {
     }
   };
 
-  const handleScheduleCall = async (date: Date, time: string, startup: string) => {
-    try {
-      console.log(`Scheduling call with ${startup} on ${date.toDateString()} at ${time}`);
-      
-      // Get mentor info
-      const { data: mentor } = await supabase
-        .from('mentors')
-        .select('id')
-        .eq('profile_id', profile?.id)
-        .single();
-
-      if (!mentor) {
-        toast({
-          title: "Error",
-          description: "Mentor profile not found.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Find the startup
-      const { data: startupData } = await supabase
-        .from('startups')
-        .select('id')
-        .eq('startup_name', startup)
-        .single();
-
-      if (!startupData) {
-        toast({
-          title: "Error",
-          description: "Startup not found.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Create appointment with proper date/time
-      const scheduledDateTime = new Date(date);
-      const [hours, minutes] = time.split(':');
-      scheduledDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-
-      const { error } = await supabase
-        .from('appointments')
-        .insert({
-          mentor_id: mentor.id,
-          startup_id: startupData.id,
-          scheduled_at: scheduledDateTime.toISOString(),
-          title: 'Mentoring Session',
-          status: 'scheduled'
-        });
-
-      if (error) throw error;
-
-      toast({
-        title: "Call Scheduled",
-        description: `Your call with ${startup} has been scheduled successfully.`,
-      });
-
-      // Refresh data to show updated upcoming calls
-      fetchMentorData();
-    } catch (error) {
-      console.error('Error scheduling call:', error);
-      toast({
-        title: "Error",
-        description: "Failed to schedule the call. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
-
   if (selectedStartup) {
     return (
       <StartupProfile 
@@ -382,31 +312,39 @@ const MentorDashboard = () => {
         </TabsContent>
 
         <TabsContent value="schedule">
-          <CallScheduler 
-            userRole="mentor" 
-            onScheduleCall={handleScheduleCall}
-          />
+          <CallScheduler userRole="mentor" />
         </TabsContent>
 
         <TabsContent value="startups" className="space-y-6">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold">
-              {showCohort ? 'All Cohort Startups' : 'My Assigned Startups'}
-            </h3>
+            <h3 className="text-lg font-semibold">Startups</h3>
             <Button 
               variant="outline" 
               onClick={() => setShowCohort(!showCohort)}
               className="border-orange-500 text-orange-600 hover:bg-orange-50"
             >
-              {showCohort ? 'View My Startups' : 'View Cohort'}
+              {showCohort ? 'View My Assigned Startups' : 'View All Cohort Startups'}
             </Button>
+          </div>
+
+          {/* Section Headers */}
+          <div className="mb-4">
+            <h4 className="text-md font-medium text-orange-600">
+              {showCohort ? 'All Cohort Startups' : 'My Assigned Startups'}
+            </h4>
+            <p className="text-sm text-muted-foreground">
+              {showCohort 
+                ? 'All startups in the current cohort' 
+                : 'Startups you have mentored or are currently mentoring'
+              }
+            </p>
           </div>
 
           {(showCohort ? allStartups : assignedStartups).length === 0 ? (
             <Card>
               <CardContent className="text-center py-8">
                 <p className="text-muted-foreground">
-                  {showCohort ? 'No startups in cohort' : 'No assigned startups'}
+                  {showCohort ? 'No startups in cohort' : 'No assigned startups yet'}
                 </p>
               </CardContent>
             </Card>
