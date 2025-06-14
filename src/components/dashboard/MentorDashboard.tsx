@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -76,8 +75,8 @@ const MentorDashboard = () => {
         `)
         .eq('mentor_id', mentor.id);
 
+      const uniqueStartups = new Map();
       if (appointmentsData) {
-        const uniqueStartups = new Map();
         appointmentsData.forEach((apt: any) => {
           if (apt.startups && !uniqueStartups.has(apt.startups.id)) {
             uniqueStartups.set(apt.startups.id, {
@@ -148,7 +147,7 @@ const MentorDashboard = () => {
       setStats({
         totalSessions: totalSessions || 0,
         availableHours: 10,
-        startupsCount: uniqueStartups?.size || 0,
+        startupsCount: uniqueStartups.size || 0,
         rating: 4.8
       });
 
