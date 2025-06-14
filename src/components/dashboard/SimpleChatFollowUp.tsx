@@ -1,68 +1,46 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { MessageSquare, Send, Calendar, Clock } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { useChat } from '@/hooks/useChat';
 
 interface SimpleChatFollowUpProps {
   userRole: 'startup' | 'mentor';
+  mentorId?: string;
+  startupId?: string;
 }
 
-interface Message {
-  id: string;
-  sender: 'startup' | 'mentor';
-  content: string;
-  timestamp: string;
-  type: 'message' | 'follow_up_call';
-}
-
-const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({ userRole }) => {
+const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({ 
+  userRole, 
+  mentorId, 
+  startupId 
+}) => {
+  const { profile } = useAuth();
+  const { messages, loading, sendMessage } = useChat(mentorId, startupId);
   const [newMessage, setNewMessage] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [followUpTime, setFollowUpTime] = useState('');
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      sender: 'mentor',
-      content: 'Great session today! How are you feeling about the product strategy we discussed?',
-      timestamp: '2024-12-20 15:30',
-      type: 'message'
-    },
-    {
-      id: '2',
-      sender: 'startup',
-      content: 'Thank you! I found the market positioning insights very valuable. Working on implementing the changes.',
-      timestamp: '2024-12-20 16:15',
-      type: 'message'
-    }
-  ]);
 
-  const handleSendMessage = () => {
-    if (!newMessage.trim()) return;
-
-    const message: Message = {
-      id: Date.now().toString(),
-      sender: userRole,
-      content: newMessage,
-      timestamp: new Date().toLocaleString(),
-      type: 'message'
-    };
-
-    setMessages([...messages, message]);
-    setNewMessage('');
-    
-    toast({
-      title: "Message Sent",
-      description: "Your message has been sent successfully.",
-    });
+  // Get sender role for each message
+  const getMessageSender = (senderProfileId: string): 'startup' | 'mentor' => {
+    // For now, we'll determine sender based on current user
+    // In a real app, you'd want to fetch the sender's role from the profile
+    return senderProfileId === profile?.id ? userRole : (userRole === 'startup' ? 'mentor' : 'startup');
   };
 
-  const handleScheduleFollowUp = () => {
+  const handleSendMessage = async () => {
+    if (!newMessage.trim()) return;
+
+    await sendMessage(newMessage);
+    setNewMessage('');
+  };
+
+  const handleScheduleFollowUp = async () => {
     if (!followUpDate || !followUpTime) {
       toast({
         title: "Missing Information",
@@ -72,15 +50,9 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({ userRole }) => 
       return;
     }
 
-    const followUpMessage: Message = {
-      id: Date.now().toString(),
-      sender: userRole,
-      content: `Follow-up call scheduled for ${followUpDate} at ${followUpTime}`,
-      timestamp: new Date().toLocaleString(),
-      type: 'follow_up_call'
-    };
-
-    setMessages([...messages, followUpMessage]);
+    const content = `Follow-up call scheduled for ${followUpDate} at ${followUpTime}`;
+    await sendMessage(content, 'follow_up_call', followUpDate, followUpTime);
+    
     setFollowUpDate('');
     setFollowUpTime('');
     
@@ -89,6 +61,19 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({ userRole }) => 
       description: "Follow-up call has been scheduled successfully.",
     });
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <Card>
+          <CardContent className="p-6 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
+            <p className="mt-2 text-muted-foreground">Loading chat...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -99,37 +84,49 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({ userRole }) => 
             <span>Chat with {userRole === 'startup' ? 'Mentor' : 'Startup'}</span>
           </CardTitle>
           <CardDescription>
-            Simple 1-on-1 communication and follow-up scheduling
+            1-on-1 communication and follow-up scheduling
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Chat Messages */}
           <div className="h-96 overflow-y-auto border rounded-lg p-4 space-y-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${message.sender === userRole ? 'justify-end' : 'justify-start'}`}
-              >
-                <div className={`max-w-xs p-3 rounded-lg ${
-                  message.sender === userRole 
-                    ? 'bg-orange-500 text-white' 
-                    : 'bg-gray-100 text-gray-900'
-                }`}>
-                  {message.type === 'follow_up_call' && (
-                    <div className="flex items-center space-x-1 mb-1">
-                      <Calendar className="h-3 w-3" />
-                      <span className="text-xs font-medium">Follow-up Call</span>
-                    </div>
-                  )}
-                  <p className="text-sm">{message.content}</p>
-                  <p className={`text-xs mt-1 ${
-                    message.sender === userRole ? 'text-orange-100' : 'text-gray-500'
-                  }`}>
-                    {message.timestamp}
-                  </p>
-                </div>
+            {messages.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">
+                <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>No messages yet. Start the conversation!</p>
               </div>
-            ))}
+            ) : (
+              messages.map((message) => {
+                const senderRole = getMessageSender(message.sender_profile_id);
+                const isCurrentUser = message.sender_profile_id === profile?.id;
+                
+                return (
+                  <div
+                    key={message.id}
+                    className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div className={`max-w-xs p-3 rounded-lg ${
+                      isCurrentUser 
+                        ? 'bg-orange-500 text-white' 
+                        : 'bg-gray-100 text-gray-900'
+                    }`}>
+                      {message.message_type === 'follow_up_call' && (
+                        <div className="flex items-center space-x-1 mb-1">
+                          <Calendar className="h-3 w-3" />
+                          <span className="text-xs font-medium">Follow-up Call</span>
+                        </div>
+                      )}
+                      <p className="text-sm">{message.content}</p>
+                      <p className={`text-xs mt-1 ${
+                        isCurrentUser ? 'text-orange-100' : 'text-gray-500'
+                      }`}>
+                        {new Date(message.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
 
           {/* New Message Input */}
