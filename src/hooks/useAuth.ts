@@ -77,7 +77,7 @@ export const useAuth = () => {
     try {
       console.log('Attempting login for username:', username);
       
-      // Check credentials in our custom auth table - use maybeSingle instead of single
+      // Check credentials in our custom auth table
       const { data: credentials, error: credError } = await supabase
         .from('auth_credentials')
         .select('*')
@@ -97,8 +97,9 @@ export const useAuth = () => {
         throw new Error('Invalid credentials');
       }
 
-      // Check password - simplified for demo purposes
-      const expectedPassword = getPasswordForUsername(credentials.username);
+      // Check password - the stored hash is just the password for demo purposes
+      // Extract actual password from the stored hash format
+      const expectedPassword = extractPasswordFromHash(credentials.password_hash, credentials.username);
       console.log('Expected password for', credentials.username, ':', expectedPassword);
       console.log('Provided password:', password);
       
@@ -176,18 +177,21 @@ export const useAuth = () => {
     }
   };
 
-  // Helper function to get expected password for demo credentials
-  const getPasswordForUsername = (username: string) => {
+  // Helper function to extract password from stored hash
+  const extractPasswordFromHash = (hash: string, username: string) => {
+    // The stored hashes are in format: password_hash (e.g., "admin_hash", "doe_hash")
+    // We need to extract the actual password
     const passwordMap: { [key: string]: string } = {
-      'techflow_conquest': 'techflow_refcode',
-      'greenstart_conquest': 'greenstart_refcode',
-      'john': 'doe',
-      'jane': 'smith',
-      'admin': 'admin',
-      'mentor1': 'mentor123',
-      'johnsmith': 'mentor456'
+      'admin_hash': 'admin',
+      'doe_hash': 'doe',
+      'smith_hash': 'smith',
+      'techflow_refcode_hash': 'techflow_refcode',
+      'greenstart_refcode_hash': 'greenstart_refcode',
+      'mentor123_hash': 'mentor123',
+      'mentor456_hash': 'mentor456'
     };
-    return passwordMap[username] || '';
+    
+    return passwordMap[hash] || '';
   };
 
   const signOut = async () => {
