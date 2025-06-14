@@ -1,47 +1,62 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Calendar, Users, MessageSquare, Clock, BookOpen, Phone, Settings, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import StartupDashboard from '@/components/dashboard/StartupDashboard';
 import MentorDashboard from '@/components/dashboard/MentorDashboard';
 import TeamDashboard from '@/components/dashboard/TeamDashboard';
-
-type UserRole = 'startup' | 'mentor' | 'team';
+import { useAuth } from '@/hooks/useAuth';
 
 const Dashboard = () => {
-  const [userRole, setUserRole] = useState<UserRole>('startup');
-  const [username, setUsername] = useState('');
   const navigate = useNavigate();
+  const { user, profile, loading, signOut } = useAuth();
 
   useEffect(() => {
-    // Check if user is logged in
-    const storedRole = localStorage.getItem('userRole') as UserRole;
-    const storedUsername = localStorage.getItem('username');
-    
-    if (!storedRole || !storedUsername) {
+    if (!loading && !user) {
       navigate('/login');
-      return;
     }
-    
-    setUserRole(storedRole);
-    setUsername(storedUsername);
-  }, [navigate]);
+  }, [user, loading, navigate]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('username');
-    navigate('/login');
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
-  const handleRoleSwitch = (newRole: UserRole) => {
-    // This is for demo purposes - in real app, users wouldn't switch roles
-    setUserRole(newRole);
-    localStorage.setItem('userRole', newRole);
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-orange-500 mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || !profile) {
+    return null;
+  }
+
+  const getDisplayName = () => {
+    if (profile.first_name && profile.last_name) {
+      return `${profile.first_name} ${profile.last_name}`;
+    }
+    return profile.username;
+  };
+
+  const getInitials = () => {
+    if (profile.first_name && profile.last_name) {
+      return `${profile.first_name[0]}${profile.last_name[0]}`;
+    }
+    return profile.username.slice(0, 2).toUpperCase();
   };
 
   return (
@@ -61,27 +76,17 @@ const Dashboard = () => {
             
             <div className="flex items-center space-x-4">
               <Badge variant="outline" className="text-orange-600 border-orange-600">
-                {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
+                {profile.role.charAt(0).toUpperCase() + profile.role.slice(1)}
               </Badge>
-              
-              <select 
-                value={userRole} 
-                onChange={(e) => handleRoleSwitch(e.target.value as UserRole)}
-                className="bg-background border border-border rounded px-3 py-2"
-              >
-                <option value="startup">Startup View</option>
-                <option value="mentor">Mentor View</option>
-                <option value="team">Team View</option>
-              </select>
               
               <div className="flex items-center space-x-2">
                 <Avatar>
-                  <AvatarImage src="/placeholder.svg" />
+                  <AvatarImage src={profile.profile_image_url || "/placeholder.svg"} />
                   <AvatarFallback className="bg-orange-100 text-orange-600">
-                    {username.charAt(0).toUpperCase()}
+                    {getInitials()}
                   </AvatarFallback>
                 </Avatar>
-                <span className="text-sm font-medium">{username}</span>
+                <span className="text-sm font-medium">{getDisplayName()}</span>
               </div>
               
               <Button variant="outline" size="sm" onClick={handleLogout}>
@@ -95,9 +100,9 @@ const Dashboard = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
-        {userRole === 'startup' && <StartupDashboard />}
-        {userRole === 'mentor' && <MentorDashboard />}
-        {userRole === 'team' && <TeamDashboard />}
+        {profile.role === 'startup' && <StartupDashboard />}
+        {profile.role === 'mentor' && <MentorDashboard />}
+        {profile.role === 'team' && <TeamDashboard />}
       </main>
     </div>
   );

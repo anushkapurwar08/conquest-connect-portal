@@ -6,68 +6,36 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
-
-type UserRole = 'startup' | 'mentor' | 'team';
+import { useAuth } from '@/hooks/useAuth';
 
 const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { signInWithCredentials } = useAuth();
 
-  const authenticateUser = (username: string, password: string): UserRole | null => {
-    // Startup authentication: startupname_conquest / startupname_refcode
-    if (username.endsWith('_conquest')) {
-      const startupName = username.replace('_conquest', '');
-      if (password === `${startupName}_refcode`) {
-        return 'startup';
-      }
-    }
-    
-    // Team authentication: firstname / surname
-    const teamCredentials = [
-      { username: 'john', password: 'doe' },
-      { username: 'jane', password: 'smith' },
-      { username: 'admin', password: 'admin' }
-    ];
-    
-    if (teamCredentials.some(cred => cred.username === username.toLowerCase() && cred.password === password.toLowerCase())) {
-      return 'team';
-    }
-    
-    // Mentor authentication (simplified for demo)
-    const mentorCredentials = [
-      { username: 'mentor1', password: 'mentor123' },
-      { username: 'johnsmith', password: 'mentor456' }
-    ];
-    
-    if (mentorCredentials.some(cred => cred.username === username.toLowerCase() && cred.password === password.toLowerCase())) {
-      return 'mentor';
-    }
-    
-    return null;
-  };
-
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     
-    const role = authenticateUser(username, password);
-    
-    if (role) {
-      localStorage.setItem('userRole', role);
-      localStorage.setItem('username', username);
+    try {
+      await signInWithCredentials(username, password);
       
       toast({
         title: "Login Successful",
-        description: `Welcome ${role}!`,
+        description: "Welcome to Conquest!",
       });
       
       navigate('/dashboard');
-    } else {
+    } catch (error: any) {
       toast({
         title: "Login Failed",
-        description: "Invalid credentials. Please check your username and password.",
+        description: error.message || "Invalid credentials. Please check your username and password.",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -96,6 +64,7 @@ const Login = () => {
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Enter your username"
                 required
+                disabled={loading}
               />
             </div>
             <div className="space-y-2">
@@ -107,10 +76,15 @@ const Login = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
                 required
+                disabled={loading}
               />
             </div>
-            <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600">
-              Sign In
+            <Button 
+              type="submit" 
+              className="w-full bg-orange-500 hover:bg-orange-600"
+              disabled={loading}
+            >
+              {loading ? 'Signing In...' : 'Sign In'}
             </Button>
           </form>
         </CardContent>

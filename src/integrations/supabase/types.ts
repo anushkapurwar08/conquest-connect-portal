@@ -9,7 +9,385 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      appointments: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          duration_minutes: number | null
+          id: string
+          meeting_url: string | null
+          mentor_id: string | null
+          notes: string | null
+          scheduled_at: string
+          startup_id: string | null
+          status: string | null
+          time_slot_id: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          meeting_url?: string | null
+          mentor_id?: string | null
+          notes?: string | null
+          scheduled_at: string
+          startup_id?: string | null
+          status?: string | null
+          time_slot_id?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          meeting_url?: string | null
+          mentor_id?: string | null
+          notes?: string | null
+          scheduled_at?: string
+          startup_id?: string | null
+          status?: string | null
+          time_slot_id?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "mentors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_startup_id_fkey"
+            columns: ["startup_id"]
+            isOneToOne: false
+            referencedRelation: "startups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_time_slot_id_fkey"
+            columns: ["time_slot_id"]
+            isOneToOne: false
+            referencedRelation: "time_slots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auth_credentials: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          password_hash: string
+          role: Database["public"]["Enums"]["user_role"]
+          startup_name: string | null
+          username: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          password_hash: string
+          role: Database["public"]["Enums"]["user_role"]
+          startup_name?: string | null
+          username: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          password_hash?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          startup_name?: string | null
+          username?: string
+        }
+        Relationships: []
+      }
+      mentors: {
+        Row: {
+          availability_hours: Json | null
+          created_at: string | null
+          hourly_rate: number | null
+          id: string
+          profile_id: string | null
+          specializations: string[] | null
+          years_experience: number | null
+        }
+        Insert: {
+          availability_hours?: Json | null
+          created_at?: string | null
+          hourly_rate?: number | null
+          id?: string
+          profile_id?: string | null
+          specializations?: string[] | null
+          years_experience?: number | null
+        }
+        Update: {
+          availability_hours?: Json | null
+          created_at?: string | null
+          hourly_rate?: number | null
+          id?: string
+          profile_id?: string | null
+          specializations?: string[] | null
+          years_experience?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentors_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          bio: string | null
+          company: string | null
+          created_at: string | null
+          expertise: string[] | null
+          first_name: string | null
+          id: string
+          last_name: string | null
+          profile_image_url: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          title: string | null
+          updated_at: string | null
+          user_id: string | null
+          username: string
+          verified_id: string | null
+        }
+        Insert: {
+          bio?: string | null
+          company?: string | null
+          created_at?: string | null
+          expertise?: string[] | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          profile_image_url?: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          username: string
+          verified_id?: string | null
+        }
+        Update: {
+          bio?: string | null
+          company?: string | null
+          created_at?: string | null
+          expertise?: string[] | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          profile_image_url?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          username?: string
+          verified_id?: string | null
+        }
+        Relationships: []
+      }
+      session_notes: {
+        Row: {
+          appointment_id: string | null
+          author_id: string | null
+          content: string
+          created_at: string | null
+          follow_up_actions: Json | null
+          follow_up_needed: boolean | null
+          id: string
+          is_shared: boolean | null
+          shared_insights: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          appointment_id?: string | null
+          author_id?: string | null
+          content: string
+          created_at?: string | null
+          follow_up_actions?: Json | null
+          follow_up_needed?: boolean | null
+          id?: string
+          is_shared?: boolean | null
+          shared_insights?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          appointment_id?: string | null
+          author_id?: string | null
+          content?: string
+          created_at?: string | null
+          follow_up_actions?: Json | null
+          follow_up_needed?: boolean | null
+          id?: string
+          is_shared?: boolean | null
+          shared_insights?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_notes_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_notes_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      startups: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          funding_amount: number | null
+          id: string
+          industry: string | null
+          profile_id: string | null
+          stage: string | null
+          startup_name: string
+          team_size: number | null
+          website_url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          funding_amount?: number | null
+          id?: string
+          industry?: string | null
+          profile_id?: string | null
+          stage?: string | null
+          startup_name: string
+          team_size?: number | null
+          website_url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          funding_amount?: number | null
+          id?: string
+          industry?: string | null
+          profile_id?: string | null
+          stage?: string | null
+          startup_name?: string
+          team_size?: number | null
+          website_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "startups_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      time_slots: {
+        Row: {
+          created_at: string | null
+          end_time: string
+          id: string
+          is_available: boolean | null
+          is_recurring: boolean | null
+          mentor_id: string | null
+          recurrence_pattern: string | null
+          start_time: string
+        }
+        Insert: {
+          created_at?: string | null
+          end_time: string
+          id?: string
+          is_available?: boolean | null
+          is_recurring?: boolean | null
+          mentor_id?: string | null
+          recurrence_pattern?: string | null
+          start_time: string
+        }
+        Update: {
+          created_at?: string | null
+          end_time?: string
+          id?: string
+          is_available?: boolean | null
+          is_recurring?: boolean | null
+          mentor_id?: string | null
+          recurrence_pattern?: string | null
+          start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_slots_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "mentors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      waitlist: {
+        Row: {
+          added_at: string | null
+          contacted_at: string | null
+          id: string
+          mentor_id: string | null
+          notes: string | null
+          priority: number | null
+          startup_id: string | null
+          status: string | null
+        }
+        Insert: {
+          added_at?: string | null
+          contacted_at?: string | null
+          id?: string
+          mentor_id?: string | null
+          notes?: string | null
+          priority?: number | null
+          startup_id?: string | null
+          status?: string | null
+        }
+        Update: {
+          added_at?: string | null
+          contacted_at?: string | null
+          id?: string
+          mentor_id?: string | null
+          notes?: string | null
+          priority?: number | null
+          startup_id?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "waitlist_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "mentors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "waitlist_startup_id_fkey"
+            columns: ["startup_id"]
+            isOneToOne: false
+            referencedRelation: "startups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -18,7 +396,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      user_role: "startup" | "mentor" | "team"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -133,6 +511,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      user_role: ["startup", "mentor", "team"],
+    },
   },
 } as const
