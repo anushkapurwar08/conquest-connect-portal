@@ -7,73 +7,34 @@ import { Input } from '@/components/ui/input';
 import { MessageSquare, Send, Calendar, Clock, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { useChat } from '@/hooks/useChat';
+import { useProfileChat } from '@/hooks/useProfileChat';
 
 interface SimpleChatFollowUpProps {
-  userRole: 'startup' | 'mentor';
-  mentorId?: string;
-  startupId?: string;
+  conversationId: string;
+  otherProfileId: string;
 }
 
 const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({ 
-  userRole, 
-  mentorId, 
-  startupId 
+  conversationId,
+  otherProfileId
 }) => {
   const { profile } = useAuth();
-  const { messages, loading, sendMessage } = useChat(mentorId, startupId);
+  const { messages, loading, sendMessage } = useProfileChat(conversationId);
   const [newMessage, setNewMessage] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [followUpTime, setFollowUpTime] = useState('');
 
   console.log('SimpleChatFollowUp: Initializing with props:', { 
-    userRole, 
-    mentorId: mentorId || 'undefined', 
-    startupId: startupId || 'undefined', 
+    conversationId,
+    otherProfileId,
     profile: !!profile 
   });
-
-  // Validate that we have the required IDs as strings
-  const validateIds = () => {
-    console.log('SimpleChatFollowUp: Validating IDs:', {
-      mentorId: { value: mentorId, type: typeof mentorId },
-      startupId: { value: startupId, type: typeof startupId }
-    });
-
-    if (!mentorId || typeof mentorId !== 'string' || mentorId.trim() === '') {
-      console.error('SimpleChatFollowUp: Invalid mentorId:', mentorId);
-      return false;
-    }
-
-    if (!startupId || typeof startupId !== 'string' || startupId.trim() === '') {
-      console.error('SimpleChatFollowUp: Invalid startupId:', startupId);
-      return false;
-    }
-
-    return true;
-  };
-
-  const hasRequiredIds = validateIds();
-
-  // Get sender role for each message
-  const getMessageSender = (senderProfileId: string): 'startup' | 'mentor' => {
-    const isCurrentUser = senderProfileId === profile?.id;
-    console.log('SimpleChatFollowUp: Determining message sender:', {
-      senderProfileId,
-      currentProfileId: profile?.id,
-      isCurrentUser,
-      userRole
-    });
-    
-    return isCurrentUser ? userRole : (userRole === 'startup' ? 'mentor' : 'startup');
-  };
 
   const handleSendMessage = async () => {
     console.log('SimpleChatFollowUp: Attempting to send message:', {
       messageLength: newMessage.trim().length,
-      hasRequiredIds,
-      mentorId,
-      startupId
+      conversationId,
+      otherProfileId
     });
 
     if (!newMessage.trim()) {
@@ -85,17 +46,17 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
       return;
     }
 
-    if (!hasRequiredIds) {
+    if (!conversationId || !otherProfileId) {
       console.error('SimpleChatFollowUp: Cannot send message - missing required IDs');
       toast({
         title: "Missing Information",
-        description: "Mentor and startup information is required to send messages.",
+        description: "Conversation information is required to send messages.",
         variant: "destructive"
       });
       return;
     }
 
-    console.log('SimpleChatFollowUp: Sending message via useChat hook');
+    console.log('SimpleChatFollowUp: Sending message via useProfileChat hook');
     await sendMessage(newMessage);
     setNewMessage('');
   };
@@ -104,23 +65,13 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
     console.log('SimpleChatFollowUp: Attempting to schedule follow-up:', {
       followUpDate,
       followUpTime,
-      hasRequiredIds
+      conversationId
     });
 
     if (!followUpDate || !followUpTime) {
       toast({
         title: "Missing Information",
         description: "Please select both date and time for follow-up call.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!hasRequiredIds) {
-      console.error('SimpleChatFollowUp: Cannot schedule follow-up - missing required IDs');
-      toast({
-        title: "Missing Information",
-        description: "Mentor and startup information is required to schedule follow-ups.",
         variant: "destructive"
       });
       return;
@@ -138,7 +89,7 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
     });
   };
 
-  if (!hasRequiredIds) {
+  if (!conversationId || !otherProfileId) {
     console.log('SimpleChatFollowUp: Rendering error state due to missing IDs');
     return (
       <div className="max-w-2xl mx-auto">
@@ -151,10 +102,9 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
             </p>
             <div className="space-y-2 text-sm text-gray-600">
               <p><strong>Debug Info:</strong></p>
-              <p>User Role: {userRole}</p>
-              <p>Mentor ID: {mentorId || 'missing'} (type: {typeof mentorId})</p>
-              <p>Startup ID: {startupId || 'missing'} (type: {typeof startupId})</p>
-              <p>Profile ID: {profile?.id || 'missing'}</p>
+              <p>Conversation ID: {conversationId || 'missing'}</p>
+              <p>Other Profile ID: {otherProfileId || 'missing'}</p>
+              <p>Current Profile ID: {profile?.id || 'missing'}</p>
             </div>
           </CardContent>
         </Card>
@@ -184,7 +134,7 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <MessageSquare className="h-5 w-5" />
-            <span>Chat with {userRole === 'startup' ? 'Mentor' : 'Startup'}</span>
+            <span>Chat</span>
           </CardTitle>
           <CardDescription>
             1-on-1 communication and follow-up scheduling
@@ -200,7 +150,6 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
               </div>
             ) : (
               messages.map((message) => {
-                const senderRole = getMessageSender(message.sender_profile_id);
                 const isCurrentUser = message.sender_profile_id === profile?.id;
                 
                 return (

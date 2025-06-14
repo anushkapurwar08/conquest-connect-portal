@@ -10,15 +10,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 import SimpleChatFollowUp from './SimpleChatFollowUp';
 
-interface ConversationWithStartup {
+interface ConversationWithProfile {
   id: string;
-  startup_id: string;
-  mentor_id: string;
+  other_profile_id: string;
+  other_profile_name: string;
+  other_profile_role: string;
+  startup_name?: string;
   created_at: string;
   updated_at: string;
-  startup_name: string;
-  startup_founder_name: string;
-  startup_stage: string;
   last_message: string;
   last_message_time: string;
   message_count: number;
@@ -27,65 +26,35 @@ interface ConversationWithStartup {
 
 const MentorChatList: React.FC = () => {
   const { profile } = useAuth();
-  const [conversations, setConversations] = useState<ConversationWithStartup[]>([]);
-  const [selectedConversation, setSelectedConversation] = useState<ConversationWithStartup | null>(null);
+  const [conversations, setConversations] = useState<ConversationWithProfile[]>([]);
+  const [selectedConversation, setSelectedConversation] = useState<ConversationWithProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (profile?.id) {
-      fetchMentorConversations();
+      fetchConversations();
     }
   }, [profile?.id]);
 
-  const fetchMentorConversations = async () => {
+  const fetchConversations = async () => {
     if (!profile?.id) return;
 
     try {
       setLoading(true);
       console.log('MentorChatList: Fetching conversations for profile:', profile.id);
 
-      // First get the mentor record
-      const { data: mentor, error: mentorError } = await supabase
-        .from('mentors')
-        .select('id')
-        .eq('profile_id', profile.id)
-        .maybeSingle();
-
-      if (mentorError) {
-        console.error('MentorChatList: Error fetching mentor:', mentorError);
-        setError(`Failed to load mentor profile: ${mentorError.message}`);
-        return;
-      }
-
-      if (!mentor) {
-        console.log('MentorChatList: No mentor record found');
-        setError('No mentor profile found. Please ensure your account is set up as a mentor.');
-        return;
-      }
-
-      console.log('MentorChatList: Found mentor ID:', mentor.id);
-
-      // Now get conversations with startup details and message info
+      // Get all conversations where this profile is involved
       const { data: conversationsData, error: conversationsError } = await supabase
         .from('conversations')
         .select(`
           id,
-          startup_id,
           mentor_id,
+          startup_id,
           created_at,
-          updated_at,
-          startups!inner(
-            startup_name,
-            stage,
-            profiles!inner(
-              first_name,
-              last_name,
-              username
-            )
-          )
+          updated_at
         `)
-        .eq('mentor_id', mentor.id)
+        .or(`mentor_id.eq.${profile.id},startup_id.eq.${profile.id}`)
         .order('updated_at', { ascending: false });
 
       if (conversationsError) {
@@ -103,9 +72,35 @@ const MentorChatList: React.FC = () => {
         return;
       }
 
-      // Get message info for each conversation
-      const conversationsWithMessages = await Promise.all(
+      // Get profile details for each conversation participant
+      const conversationsWithProfiles = await Promise.all(
         conversationsData.map(async (conv) => {
+          // Determine which profile is the "other" person
+          const otherProfileId = conv.mentor_id === profile.id ? conv.startup_id : conv.mentor_id;
+          
+          // Get the other person's profile
+          const { data: otherProfile, error: profileError } = await supabase
+            .from('profiles')
+            .select('id, username, first_name, last_name, role')
+            .eq('id', otherProfileId)
+            .single();
+
+          if (profileError) {
+            console.error('Error fetching other profile:', profileError);
+            return null;
+          }
+
+          // Get startup name if the other person is a startup
+          let startupName = null;
+          if (otherProfile?.role === 'startup') {
+            const { data: startup } = await supabase
+              .from('startups')
+              .select('startup_name')
+              .eq('profile_id', otherProfile.id)
+              .single();
+            startupName = startup?.startup_name;
+          }
+
           // Get last message and count
           const { data: messages, error: messagesError } = await supabase
             .from('messages')
@@ -120,31 +115,27 @@ const MentorChatList: React.FC = () => {
           const lastMessage = messages && messages.length > 0 ? messages[0] : null;
           const messageCount = messages ? messages.length : 0;
           
-          // Count unread messages (messages from startup to mentor that are "unread")
-          // For simplicity, we'll just show if there are any messages
-          const unreadCount = messages ? messages.filter(m => m.sender_profile_id !== profile.id).length : 0;
+          // Count unread messages (messages from other person)
+          const unreadCount = messages ? messages.filter(m => m.sender_profile_id === otherProfile?.id).length : 0;
 
-          const startup = conv.startups;
-          const startupProfile = startup?.profiles;
-          
-          let founderName = 'Unknown';
-          if (startupProfile) {
-            if (startupProfile.first_name && startupProfile.last_name) {
-              founderName = `${startupProfile.first_name} ${startupProfile.last_name}`;
+          // Create display name
+          let displayName = 'Unknown User';
+          if (otherProfile) {
+            if (otherProfile.first_name && otherProfile.last_name) {
+              displayName = `${otherProfile.first_name} ${otherProfile.last_name}`;
             } else {
-              founderName = startupProfile.username;
+              displayName = otherProfile.username;
             }
           }
 
           return {
             id: conv.id,
-            startup_id: conv.startup_id,
-            mentor_id: conv.mentor_id,
+            other_profile_id: otherProfileId,
+            other_profile_name: displayName,
+            other_profile_role: otherProfile?.role || 'unknown',
+            startup_name: startupName,
             created_at: conv.created_at,
             updated_at: conv.updated_at,
-            startup_name: startup?.startup_name || 'Unknown Startup',
-            startup_founder_name: founderName,
-            startup_stage: startup?.stage || 'Unknown',
             last_message: lastMessage ? 
               (lastMessage.content.length > 50 ? `${lastMessage.content.substring(0, 50)}...` : lastMessage.content) : 
               'No messages yet',
@@ -155,8 +146,9 @@ const MentorChatList: React.FC = () => {
         })
       );
 
-      console.log('MentorChatList: Processed conversations:', conversationsWithMessages);
-      setConversations(conversationsWithMessages);
+      const validConversations = conversationsWithProfiles.filter(conv => conv !== null) as ConversationWithProfile[];
+      console.log('MentorChatList: Processed conversations:', validConversations);
+      setConversations(validConversations);
       setError(null);
     } catch (error) {
       console.error('MentorChatList: Unexpected error:', error);
@@ -166,11 +158,11 @@ const MentorChatList: React.FC = () => {
     }
   };
 
-  const handleSelectConversation = (conversation: ConversationWithStartup) => {
+  const handleSelectConversation = (conversation: ConversationWithProfile) => {
     console.log('MentorChatList: Opening conversation:', {
       conversationId: conversation.id,
-      mentorId: conversation.mentor_id,
-      startupId: conversation.startup_id
+      currentProfileId: profile?.id,
+      otherProfileId: conversation.other_profile_id
     });
     setSelectedConversation(conversation);
   };
@@ -183,7 +175,7 @@ const MentorChatList: React.FC = () => {
             <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-500" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">Unable to Load Conversations</h3>
             <p className="text-red-600 mb-4">{error}</p>
-            <Button onClick={fetchMentorConversations} className="mt-4">
+            <Button onClick={fetchConversations} className="mt-4">
               Try Again
             </Button>
           </div>
@@ -216,14 +208,14 @@ const MentorChatList: React.FC = () => {
             <span>← Back to Conversations</span>
           </Button>
           <div className="text-sm text-muted-foreground">
-            Chatting with {selectedConversation.startup_founder_name} from {selectedConversation.startup_name}
+            Chatting with {selectedConversation.other_profile_name}
+            {selectedConversation.startup_name && ` from ${selectedConversation.startup_name}`}
           </div>
         </div>
         
         <SimpleChatFollowUp
-          userRole="mentor"
-          mentorId={selectedConversation.mentor_id}
-          startupId={selectedConversation.startup_id}
+          conversationId={selectedConversation.id}
+          otherProfileId={selectedConversation.other_profile_id}
         />
       </div>
     );
@@ -238,7 +230,7 @@ const MentorChatList: React.FC = () => {
           <span>Your Conversations</span>
         </CardTitle>
         <CardDescription>
-          Messages from startups seeking your mentorship
+          Your messages and conversations
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -247,7 +239,7 @@ const MentorChatList: React.FC = () => {
             <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No conversations yet</h3>
             <p className="text-gray-500">
-              When startups message you, their conversations will appear here.
+              When you start messaging someone, your conversations will appear here.
             </p>
           </div>
         ) : (
@@ -263,14 +255,14 @@ const MentorChatList: React.FC = () => {
                     <div className="flex items-start space-x-3 flex-1">
                       <Avatar className="h-12 w-12">
                         <AvatarFallback className="bg-orange-100 text-orange-600">
-                          {conversation.startup_founder_name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                          {conversation.other_profile_name.split(' ').map(n => n[0]).join('').toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                       
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-2 mb-1">
                           <h4 className="font-semibold text-gray-900">
-                            {conversation.startup_founder_name}
+                            {conversation.other_profile_name}
                           </h4>
                           {conversation.unread_count > 0 && (
                             <Badge className="bg-orange-500 text-white text-xs">
@@ -279,12 +271,14 @@ const MentorChatList: React.FC = () => {
                           )}
                         </div>
                         
-                        <p className="text-sm font-medium text-gray-700 mb-1">
-                          {conversation.startup_name}
-                        </p>
+                        {conversation.startup_name && (
+                          <p className="text-sm font-medium text-gray-700 mb-1">
+                            {conversation.startup_name}
+                          </p>
+                        )}
                         
                         <Badge variant="outline" className="text-xs mb-2">
-                          {conversation.startup_stage}
+                          {conversation.other_profile_role}
                         </Badge>
                         
                         <p className="text-sm text-gray-600 mb-2">
