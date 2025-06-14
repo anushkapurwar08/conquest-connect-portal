@@ -31,8 +31,6 @@ interface ProcessedMentor {
   currentRole: string;
   company: string;
   bio: string;
-  rating: number;
-  sessionsCompleted: number;
   typeSpecific: string;
   availability: string;
   yearsExperience: number;
@@ -112,8 +110,6 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
           currentRole: profile?.title || 'Mentor',
           company: profile?.company || 'Independent',
           bio: profile?.bio || 'Experienced mentor ready to help your startup grow.',
-          rating: 4.8 + Math.random() * 0.4, // Mock data between 4.8-5.2
-          sessionsCompleted: Math.floor(Math.random() * 200) + 50,
           typeSpecific: getTypeSpecific(mentor.mentor_type),
           availability: getAvailability(mentor.mentor_type),
           yearsExperience: mentor.years_experience || 5,
@@ -277,11 +273,6 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
                       
                       <div className="flex items-center justify-between text-sm">
                         <div className="flex items-center space-x-4 text-gray-600">
-                          <div className="flex items-center space-x-1">
-                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                            <span className="font-medium">{mentor.rating.toFixed(1)}</span>
-                          </div>
-                          <span>{mentor.sessionsCompleted} sessions</span>
                           <span>{mentor.yearsExperience} years exp.</span>
                         </div>
                         
