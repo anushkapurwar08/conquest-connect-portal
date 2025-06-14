@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Linkedin, Building, BookOpen, Star } from 'lucide-react';
+import { Building, BookOpen, Star } from 'lucide-react';
 
 interface MentorProfileProps {
   mentorId: string;
@@ -24,7 +24,6 @@ const MentorProfile: React.FC<MentorProfileProps> = ({ mentorId, onClose, onAddT
       { name: 'InnovateLab', role: 'Head of Product', years: '2015-2018' },
       { name: 'StartupX', role: 'Product Manager', years: '2012-2015' }
     ],
-    linkedin: 'https://linkedin.com/in/johnsmith',
     bio: 'Serial entrepreneur with 15+ years of experience building and scaling tech companies. Successfully raised $50M+ in funding and led teams of 100+ people.',
     achievements: [
       'Built and sold 2 companies',
@@ -129,20 +128,12 @@ const MentorProfile: React.FC<MentorProfileProps> = ({ mentorId, onClose, onAddT
 
       <Card>
         <CardHeader>
-          <CardTitle>Connect</CardTitle>
+          <CardTitle>Availability</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex space-x-4">
-            <Button variant="outline" asChild>
-              <a href={mentorData.linkedin} target="_blank" rel="noopener noreferrer">
-                <Linkedin className="mr-2 h-4 w-4" />
-                LinkedIn
-              </a>
-            </Button>
-            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-              <span>Availability:</span>
-              <Badge variant="outline">{mentorData.availability}</Badge>
-            </div>
+          <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+            <span>Status:</span>
+            <Badge variant="outline">{mentorData.availability}</Badge>
           </div>
         </CardContent>
       </Card>

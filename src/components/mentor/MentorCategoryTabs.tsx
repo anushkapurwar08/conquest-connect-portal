@@ -21,6 +21,7 @@ const MentorCategoryTabs: React.FC<MentorCategoryTabsProps> = ({
     expert: 0,
     coach: 0
   });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchMentorCounts();
@@ -28,14 +29,20 @@ const MentorCategoryTabs: React.FC<MentorCategoryTabsProps> = ({
 
   const fetchMentorCounts = async () => {
     try {
+      setLoading(true);
+      console.log('Fetching mentor counts...');
+      
       const { data, error } = await supabase
         .from('mentors')
-        .select('mentor_type');
+        .select('mentor_type, profiles!inner(id)')
+        .not('profiles', 'is', null);
 
       if (error) {
         console.error('Error fetching mentor counts:', error);
         return;
       }
+
+      console.log('Mentor counts data:', data);
 
       const counts = {
         founder_mentor: 0,
@@ -49,9 +56,12 @@ const MentorCategoryTabs: React.FC<MentorCategoryTabsProps> = ({
         }
       });
 
+      console.log('Calculated counts:', counts);
       setMentorCounts(counts);
     } catch (error) {
       console.error('Error fetching mentor counts:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -69,17 +79,23 @@ const MentorCategoryTabs: React.FC<MentorCategoryTabsProps> = ({
         <TabsTrigger value="founder_mentor" className="flex items-center space-x-2">
           <Users className="h-4 w-4" />
           <span>Founder Mentors</span>
-          <Badge variant="secondary" className="ml-1">{mentorCounts.founder_mentor}</Badge>
+          <Badge variant="secondary" className="ml-1">
+            {loading ? '...' : mentorCounts.founder_mentor}
+          </Badge>
         </TabsTrigger>
         <TabsTrigger value="expert" className="flex items-center space-x-2">
           <Target className="h-4 w-4" />
           <span>Experts</span>
-          <Badge variant="secondary" className="ml-1">{mentorCounts.expert}</Badge>
+          <Badge variant="secondary" className="ml-1">
+            {loading ? '...' : mentorCounts.expert}
+          </Badge>
         </TabsTrigger>
         <TabsTrigger value="coach" className="flex items-center space-x-2">
           <TrendingUp className="h-4 w-4" />
           <span>Coaches</span>
-          <Badge variant="secondary" className="ml-1">{mentorCounts.coach}</Badge>
+          <Badge variant="secondary" className="ml-1">
+            {loading ? '...' : mentorCounts.coach}
+          </Badge>
         </TabsTrigger>
       </TabsList>
       
