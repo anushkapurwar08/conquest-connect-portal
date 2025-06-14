@@ -1,105 +1,123 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { TrendingUp, Users, Calendar, Target } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { MessageSquare, Calendar, Users, TrendingUp } from 'lucide-react';
+import StartupMentorChat from './StartupMentorChat';
+import { useAuth } from '@/hooks/useAuth';
 
-const StartupDashboard: React.FC = () => {
+const StartupDashboard = () => {
+  const { profile } = useAuth();
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Growth Rate</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0%</div>
-            <p className="text-xs text-muted-foreground">Monthly growth</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Team Size</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-muted-foreground">Team members</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Sessions</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-muted-foreground">This month</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Goals</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-muted-foreground">Completed</p>
-          </CardContent>
-        </Card>
+      {/* Welcome Section */}
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">
+          Welcome back, {profile?.first_name || profile?.username}!
+        </h1>
+        <p className="text-gray-600 mt-2">
+          Connect with mentors and grow your startup
+        </p>
       </div>
 
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="mentors">Mentors</TabsTrigger>
-          <TabsTrigger value="sessions">Sessions</TabsTrigger>
+      {/* Main Dashboard Tabs */}
+      <Tabs defaultValue="mentors" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="mentors" className="flex items-center space-x-2">
+            <MessageSquare className="h-4 w-4" />
+            <span>Mentors</span>
+          </TabsTrigger>
+          <TabsTrigger value="sessions" className="flex items-center space-x-2">
+            <Calendar className="h-4 w-4" />
+            <span>Sessions</span>
+          </TabsTrigger>
+          <TabsTrigger value="community" className="flex items-center space-x-2">
+            <Users className="h-4 w-4" />
+            <span>Community</span>
+          </TabsTrigger>
+          <TabsTrigger value="progress" className="flex items-center space-x-2">
+            <TrendingUp className="h-4 w-4" />
+            <span>Progress</span>
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-4">
+        <TabsContent value="mentors" className="mt-6">
+          <StartupMentorChat />
+        </TabsContent>
+
+        <TabsContent value="sessions" className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Startup Overview</CardTitle>
-              <CardDescription>
-                Your startup metrics and progress
-              </CardDescription>
+              <CardTitle>Upcoming Sessions</CardTitle>
+              <CardDescription>Your scheduled mentoring sessions</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground">Dashboard overview coming soon...</p>
+              <div className="text-center py-8 text-muted-foreground">
+                <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No upcoming sessions scheduled</p>
+                <p className="text-sm">Connect with a mentor to schedule your first session</p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="mentors" className="space-y-4">
+        <TabsContent value="community" className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Connect with Mentors</CardTitle>
-              <CardDescription>
-                Find and connect with mentors in your industry
-              </CardDescription>
+              <CardTitle>Startup Community</CardTitle>
+              <CardDescription>Connect with other startups and entrepreneurs</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground">Mentor discovery coming soon...</p>
+              <div className="text-center py-8 text-muted-foreground">
+                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Community features coming soon</p>
+                <p className="text-sm">Join discussions and network with fellow entrepreneurs</p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="sessions" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Your Sessions</CardTitle>
-              <CardDescription>
-                Upcoming and past mentoring sessions
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">No sessions scheduled</p>
-            </CardContent>
-          </Card>
+        <TabsContent value="progress" className="mt-6">
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Mentoring Progress</CardTitle>
+                <CardDescription>Track your mentoring journey</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm">Sessions Completed</span>
+                    <Badge variant="secondary">0</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm">Active Mentors</span>
+                    <Badge variant="secondary">0</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm">Goals Achieved</span>
+                    <Badge variant="secondary">0</Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Activity</CardTitle>
+                <CardDescription>Your latest interactions</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-muted-foreground">
+                  <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No recent activity</p>
+                  <p className="text-sm">Start chatting with mentors to see activity here</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
