@@ -4,51 +4,82 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Calendar, Users, MessageSquare, Clock, Settings, ExternalLink, FileText } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { toast } from '@/hooks/use-toast';
-import SharedMentorNotes from './SharedMentorNotes';
-import PostCallFollowUp from './PostCallFollowUp';
+import { Calendar, Users, MessageSquare, Clock, BookOpen, Phone, Star, Building } from 'lucide-react';
 import StartupProfile from '@/components/startup/StartupProfile';
+import CallScheduler from '@/components/scheduling/CallScheduler';
+import PostCallFollowUp from './PostCallFollowUp';
+import SharedMentorNotes from './SharedMentorNotes';
 
 const MentorDashboard = () => {
-  const [calendlyLink, setCalendlyLink] = useState('');
-  const [mentorType] = useState('coach'); // Can be 'coach', 'founder-mentor', 'expert'
-  const [showPostCallModal, setShowPostCallModal] = useState(false);
-  const [selectedCall, setSelectedCall] = useState(null);
-  const [showStartupProfile, setShowStartupProfile] = useState(false);
-  const [selectedStartupId, setSelectedStartupId] = useState('');
+  const [selectedStartup, setSelectedStartup] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('overview');
 
-  const handleUpdateCalendly = () => {
-    toast({
-      title: "Calendly Updated",
-      description: "Your availability has been updated successfully.",
-    });
+  // Mock data for demonstration
+  const mentorData = {
+    name: 'John Smith',
+    title: 'Senior Mentor',
+    avatarUrl: '/placeholder.svg',
+    totalSessions: 24,
+    availableHours: 10,
+    rating: 4.8,
+    recentActivity: [
+      {
+        type: 'call',
+        startup: 'TechStart Inc.',
+        date: '2024-01-05',
+        time: '14:00'
+      },
+      {
+        type: 'note',
+        startup: 'InnovateLab',
+        date: '2024-01-03',
+        time: '16:00'
+      }
+    ],
+    upcomingSessions: [
+      {
+        startup: 'NextGen Solutions',
+        date: '2024-01-10',
+        time: '11:00'
+      },
+      {
+        startup: 'FutureForward',
+        date: '2024-01-12',
+        time: '15:00'
+      }
+    ],
+    startups: [
+      {
+        id: 'techstart',
+        name: 'TechStart Inc.',
+        description: 'Developing AI solutions for healthcare',
+        logoUrl: '/placeholder.svg'
+      },
+      {
+        id: 'innovatelab',
+        name: 'InnovateLab',
+        description: 'Creating sustainable energy solutions',
+        logoUrl: '/placeholder.svg'
+      },
+      {
+        id: 'nextgen',
+        name: 'NextGen Solutions',
+        description: 'Building the future of education',
+        logoUrl: '/placeholder.svg'
+      }
+    ]
   };
 
-  const getAssignedStartups = () => {
-    if (mentorType === 'coach') return 2;
-    if (mentorType === 'founder-mentor') return 8;
-    return 'Various'; // for experts
+  const handleScheduleCall = (date: Date, time: string, startup: string) => {
+    console.log(`Scheduling call with ${startup} on ${date.toDateString()} at ${time}`);
+    // Here you would typically make an API call to schedule the call
   };
 
-  const openPostCallFollowUp = (call: any) => {
-    setSelectedCall(call);
-    setShowPostCallModal(true);
-  };
-
-  const handleViewStartup = (startupId: string) => {
-    setSelectedStartupId(startupId);
-    setShowStartupProfile(true);
-  };
-
-  if (showStartupProfile) {
+  if (selectedStartup) {
     return (
-      <StartupProfile
-        startupId={selectedStartupId}
-        onClose={() => setShowStartupProfile(false)}
+      <StartupProfile 
+        startupId={selectedStartup} 
+        onClose={() => setSelectedStartup(null)}
       />
     );
   }
@@ -56,307 +87,159 @@ const MentorDashboard = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold">Mentor Dashboard</h2>
-        <Badge variant="outline" className="text-lg px-3 py-1 capitalize">
-          {mentorType === 'founder-mentor' ? 'Founder Mentor' : mentorType}
+        <div>
+          <h1 className="text-3xl font-bold text-orange-600">Mentor Dashboard</h1>
+          <p className="text-muted-foreground">Guide startups to success</p>
+        </div>
+        <Badge className="bg-orange-100 text-orange-800 border-orange-200">
+          Active Mentor
         </Badge>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="availability">Availability</TabsTrigger>
-          <TabsTrigger value="startups">My Startups</TabsTrigger>
+          <TabsTrigger value="schedule">Schedule</TabsTrigger>
+          <TabsTrigger value="startups">Startups</TabsTrigger>
           <TabsTrigger value="notes">Shared Notes</TabsTrigger>
-          <TabsTrigger value="feedback">Feedback</TabsTrigger>
-          <TabsTrigger value="contact">Contact</TabsTrigger>
+          <TabsTrigger value="follow-up">Post-Call</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <TabsContent value="overview" className="space-y-6">
+          {/* Quick Stats */}
+          <div className="grid gap-4 md:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Upcoming Calls</CardTitle>
-                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Mentoring Sessions</CardTitle>
+                <Users className="h-4 w-4 text-orange-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">5</div>
-                <p className="text-xs text-muted-foreground">This week</p>
+                <div className="text-2xl font-bold">24</div>
+                <p className="text-xs text-muted-foreground">+4 this month</p>
               </CardContent>
             </Card>
-
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Assigned Startups</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Available Hours</CardTitle>
+                <Clock className="h-4 w-4 text-orange-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{getAssignedStartups()}</div>
-                <p className="text-xs text-muted-foreground">Active mentoring</p>
+                <div className="text-2xl font-bold">10</div>
+                <p className="text-xs text-muted-foreground">Hours per week</p>
               </CardContent>
             </Card>
-
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Completed Sessions</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Startups Mentored</CardTitle>
+                <BookOpen className="h-4 w-4 text-orange-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">28</div>
-                <p className="text-xs text-muted-foreground">This month</p>
+                <div className="text-2xl font-bold">12</div>
+                <p className="text-xs text-muted-foreground">Active startups</p>
               </CardContent>
             </Card>
-
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Feedback Forms</CardTitle>
-                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Rating</CardTitle>
+                <Star className="h-4 w-4 text-orange-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">3</div>
-                <p className="text-xs text-muted-foreground">Pending</p>
+                <div className="text-2xl font-bold">4.8</div>
+                <p className="text-xs text-muted-foreground">Out of 5</p>
               </CardContent>
             </Card>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          {/* Recent Activity and Upcoming Sessions */}
+          <div className="grid gap-6 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Upcoming Calls</CardTitle>
+                <CardTitle className="flex items-center space-x-2 text-orange-600">
+                  <MessageSquare className="h-5 w-5" />
+                  <span>Recent Activity</span>
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {[
-                  { startup: 'TechFlow', time: 'Dec 21, 2:00 PM', status: 'Confirmed' },
-                  { startup: 'GreenStart', time: 'Dec 22, 10:00 AM', status: 'Confirmed' },
-                  { startup: 'DataDrive', time: 'Dec 23, 4:00 PM', status: 'Pending' }
-                ].map((call, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 border rounded">
-                    <div>
-                      <p className="font-medium">{call.startup}</p>
-                      <p className="text-sm text-muted-foreground">{call.time}</p>
-                    </div>
-                    <Badge variant={call.status === 'Confirmed' ? 'default' : 'secondary'}>
-                      {call.status}
-                    </Badge>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="text-sm">
-                  <p className="font-medium">Session completed with TechFlow</p>
-                  <p className="text-muted-foreground">2 hours ago</p>
-                </div>
-                <div className="text-sm">
-                  <p className="font-medium">New booking from GreenStart</p>
-                  <p className="text-muted-foreground">5 hours ago</p>
-                </div>
-                <div className="text-sm">
-                  <p className="font-medium">Feedback form submitted</p>
-                  <p className="text-muted-foreground">1 day ago</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="availability" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Update Your Availability</CardTitle>
-              <CardDescription>Manage your Calendly link and available slots</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="calendly">Calendly Link</Label>
-                <Input 
-                  id="calendly"
-                  value={calendlyLink}
-                  onChange={(e) => setCalendlyLink(e.target.value)}
-                  placeholder="https://calendly.com/your-link"
-                  className="mt-1"
-                />
-              </div>
-              <Button onClick={handleUpdateCalendly}>Update Availability</Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Current Schedule</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {[
-                  'Monday: 2:00 PM - 5:00 PM',
-                  'Wednesday: 10:00 AM - 12:00 PM',
-                  'Friday: 3:00 PM - 6:00 PM'
-                ].map((slot, i) => (
-                  <div key={i} className="flex items-center justify-between p-2 border rounded">
-                    <span>{slot}</span>
-                    <Button size="sm" variant="outline">Edit</Button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="startups" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>My Startups ({getAssignedStartups()})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2">
-                {(mentorType === 'coach' ? 
-                  [
-                    { id: '1', name: 'TechFlow', founder: 'John Doe', lastSession: '2 days ago', hasPostCall: true },
-                    { id: '2', name: 'GreenStart', founder: 'Jane Smith', lastSession: '1 week ago', hasPostCall: false }
-                  ] :
-                  [
-                    { id: '1', name: 'TechFlow', founder: 'John Doe', lastSession: '2 days ago', hasPostCall: true },
-                    { id: '2', name: 'GreenStart', founder: 'Jane Smith', lastSession: '1 week ago', hasPostCall: false },
-                    { id: '3', name: 'DataDrive', founder: 'Mike Johnson', lastSession: '3 days ago', hasPostCall: true },
-                    { id: '4', name: 'HealthTech', founder: 'Sarah Wilson', lastSession: '5 days ago', hasPostCall: false },
-                    { id: '5', name: 'EduStart', founder: 'Chris Brown', lastSession: '1 week ago', hasPostCall: true },
-                    { id: '6', name: 'FinTech Pro', founder: 'Lisa Chen', lastSession: '4 days ago', hasPostCall: false },
-                    { id: '7', name: 'AI Solutions', founder: 'David Kim', lastSession: '2 days ago', hasPostCall: true },
-                    { id: '8', name: 'CleanEnergy', founder: 'Emma Davis', lastSession: '6 days ago', hasPostCall: false }
-                  ].slice(0, mentorType === 'founder-mentor' ? 8 : 4)
-                ).map((startup, i) => (
-                  <div key={i} className="p-4 border rounded space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{startup.name}</p>
-                        <p className="text-sm text-muted-foreground">{startup.founder}</p>
-                        <p className="text-xs text-muted-foreground">Last session: {startup.lastSession}</p>
-                        {startup.hasPostCall && (
-                          <Badge className="bg-green-600 mt-1">Post-call available</Badge>
-                        )}
+              <CardContent>
+                <ul className="space-y-4">
+                  {mentorData.recentActivity.map((activity, index) => (
+                    <li key={index} className="border-b pb-2 last:border-none">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-medium">{activity.startup}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {activity.date} {activity.time}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex space-x-2">
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleViewStartup(startup.id)}
-                      >
-                        View Profile
-                      </Button>
-                      <Button size="sm" variant="outline">
-                        <MessageSquare className="mr-1 h-3 w-3" />
-                        WhatsApp
-                      </Button>
-                      <Button size="sm" variant="outline">Schedule Call</Button>
-                      {startup.hasPostCall && (
-                        <Button 
-                          size="sm" 
-                          onClick={() => openPostCallFollowUp(startup)}
-                        >
-                          <FileText className="mr-1 h-3 w-3" />
-                          Post-Call
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                      <p className="text-sm text-muted-foreground">
+                        {activity.type === 'call' ? 'Mentoring call' : 'Note shared'}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2 text-orange-600">
+                  <Calendar className="h-5 w-5" />
+                  <span>Upcoming Sessions</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-4">
+                  {mentorData.upcomingSessions.map((session, index) => (
+                    <li key={index} className="border-b pb-2 last:border-none">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-medium">{session.startup}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {session.date} {session.time}
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground">Mentoring session</p>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
-        <TabsContent value="notes" className="space-y-4">
+        <TabsContent value="schedule">
+          <CallScheduler 
+            userRole="mentor" 
+            onScheduleCall={handleScheduleCall}
+          />
+        </TabsContent>
+
+        <TabsContent value="startups" className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-3">
+            {mentorData.startups.map((startup) => (
+              <Card key={startup.id} className="hover:bg-accent cursor-pointer" onClick={() => setSelectedStartup(startup.id)}>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback>{startup.name.charAt(0)}</AvatarFallback>
+                      <AvatarImage src={startup.logoUrl} />
+                    </Avatar>
+                    <span>{startup.name}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">{startup.description}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="notes">
           <SharedMentorNotes />
         </TabsContent>
 
-        <TabsContent value="feedback" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Feedback Forms</CardTitle>
-              <CardDescription>Submit feedback for completed sessions</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {[
-                  { startup: 'TechFlow', session: 'Product Strategy', date: 'Dec 19, 2024' },
-                  { startup: 'GreenStart', session: 'Market Analysis', date: 'Dec 18, 2024' }
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 border rounded">
-                    <div>
-                      <p className="font-medium">{item.startup} - {item.session}</p>
-                      <p className="text-sm text-muted-foreground">{item.date}</p>
-                    </div>
-                    <Button size="sm">Submit Feedback</Button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="contact" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Contact Team</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Textarea placeholder="Type your message to the Conquest team..." />
-                <Button>Send Message</Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Raise a Query</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <select className="w-full p-2 border rounded">
-                  <option>Technical Issue</option>
-                  <option>Scheduling Conflict</option>
-                  <option>Startup Concern</option>
-                  <option>Other</option>
-                </select>
-                <Textarea placeholder="Describe your query..." />
-                <Button>Submit Query</Button>
-              </CardContent>
-            </Card>
-          </div>
+        <TabsContent value="follow-up">
+          <PostCallFollowUp userRole="mentor" />
         </TabsContent>
       </Tabs>
-
-      {/* Post-Call Follow-Up Modal */}
-      {showPostCallModal && selectedCall && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-background rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-4">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Post-Call Follow-Up</h3>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setShowPostCallModal(false)}
-                >
-                  Close
-                </Button>
-              </div>
-              <PostCallFollowUp
-                callId="call-123"
-                startup={selectedCall.name}
-                mentor="Current Mentor"
-                date={selectedCall.lastSession}
-                userRole="mentor"
-              />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

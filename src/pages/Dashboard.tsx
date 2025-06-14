@@ -1,11 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Calendar, Users, MessageSquare, Clock, BookOpen, Phone, Settings } from 'lucide-react';
+import { Calendar, Users, MessageSquare, Clock, BookOpen, Phone, Settings, LogOut } from 'lucide-react';
 import StartupDashboard from '@/components/dashboard/StartupDashboard';
 import MentorDashboard from '@/components/dashboard/MentorDashboard';
 import TeamDashboard from '@/components/dashboard/TeamDashboard';
@@ -14,6 +15,34 @@ type UserRole = 'startup' | 'mentor' | 'team';
 
 const Dashboard = () => {
   const [userRole, setUserRole] = useState<UserRole>('startup');
+  const [username, setUsername] = useState('');
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Check if user is logged in
+    const storedRole = localStorage.getItem('userRole') as UserRole;
+    const storedUsername = localStorage.getItem('username');
+    
+    if (!storedRole || !storedUsername) {
+      navigate('/login');
+      return;
+    }
+    
+    setUserRole(storedRole);
+    setUsername(storedUsername);
+  }, [navigate]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('username');
+    navigate('/login');
+  };
+
+  const handleRoleSwitch = (newRole: UserRole) => {
+    // This is for demo purposes - in real app, users wouldn't switch roles
+    setUserRole(newRole);
+    localStorage.setItem('userRole', newRole);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -27,13 +56,17 @@ const Dashboard = () => {
                 alt="Conquest Logo" 
                 className="h-8"
               />
-              <h1 className="text-2xl font-bold">Conquest Dashboard</h1>
+              <h1 className="text-2xl font-bold text-orange-600">Conquest Dashboard</h1>
             </div>
             
             <div className="flex items-center space-x-4">
+              <Badge variant="outline" className="text-orange-600 border-orange-600">
+                {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
+              </Badge>
+              
               <select 
                 value={userRole} 
-                onChange={(e) => setUserRole(e.target.value as UserRole)}
+                onChange={(e) => handleRoleSwitch(e.target.value as UserRole)}
                 className="bg-background border border-border rounded px-3 py-2"
               >
                 <option value="startup">Startup View</option>
@@ -41,10 +74,20 @@ const Dashboard = () => {
                 <option value="team">Team View</option>
               </select>
               
-              <Avatar>
-                <AvatarImage src="/placeholder.svg" />
-                <AvatarFallback>U</AvatarFallback>
-              </Avatar>
+              <div className="flex items-center space-x-2">
+                <Avatar>
+                  <AvatarImage src="/placeholder.svg" />
+                  <AvatarFallback className="bg-orange-100 text-orange-600">
+                    {username.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-sm font-medium">{username}</span>
+              </div>
+              
+              <Button variant="outline" size="sm" onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
+              </Button>
             </div>
           </div>
         </div>

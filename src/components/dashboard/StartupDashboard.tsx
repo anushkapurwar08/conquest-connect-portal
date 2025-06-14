@@ -4,53 +4,98 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Calendar, Users, MessageSquare, Clock, BookOpen, Phone } from 'lucide-react';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { toast } from '@/hooks/use-toast';
+import { Calendar, Users, MessageSquare, Clock, BookOpen, Phone, Bell } from 'lucide-react';
 import MentorProfile from '@/components/mentor/MentorProfile';
 import WaitlistManager from '@/components/waitlist/WaitlistManager';
+import CallScheduler from '@/components/scheduling/CallScheduler';
+import PostCallFollowUp from './PostCallFollowUp';
 
 const StartupDashboard = () => {
-  const [selectedMentor, setSelectedMentor] = useState('');
-  const [suggestion, setSuggestion] = useState('');
-  const [showMentorProfile, setShowMentorProfile] = useState(false);
-  const [selectedMentorId, setSelectedMentorId] = useState('');
+  const [selectedMentor, setSelectedMentor] = useState<string | null>(null);
+  const [showWaitlist, setShowWaitlist] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
 
-  const handleBookSlot = () => {
-    toast({
-      title: "Booking Confirmed",
-      description: "Your slot has been booked successfully. You'll receive a confirmation email shortly.",
-    });
-  };
+  const mockMentors = [
+    {
+      id: '1',
+      name: 'John Smith',
+      title: 'Partner at TechVentures',
+      expertise: ['Product Strategy', 'Go-to-Market'],
+    },
+    {
+      id: '2',
+      name: 'Sarah Johnson',
+      title: 'CEO of InnovateLab',
+      expertise: ['Fundraising', 'Team Building'],
+    },
+    {
+      id: '3',
+      name: 'Mike Davis',
+      title: 'CTO of NextGen Solutions',
+      expertise: ['Technology', 'Scaling'],
+    },
+  ];
 
-  const handleSendSuggestion = () => {
-    toast({
-      title: "Message Sent",
-      description: "Your suggestion has been sent to the team.",
-    });
-    setSuggestion('');
-  };
+  const recentActivity = [
+    {
+      id: '1',
+      description: 'Scheduled a call with John Smith',
+      time: '2 hours ago',
+    },
+    {
+      id: '2',
+      description: 'Added Sarah Johnson to waitlist',
+      time: '5 hours ago',
+    },
+    {
+      id: '3',
+      description: 'Completed call with Mike Davis',
+      time: '1 day ago',
+    },
+  ];
 
-  const handleViewMentor = (mentorId: string) => {
-    setSelectedMentorId(mentorId);
-    setShowMentorProfile(true);
+  const upcomingCalls = [
+    {
+      id: '1',
+      mentor: 'John Smith',
+      time: 'January 15, 2024, 2:00 PM',
+    },
+    {
+      id: '2',
+      mentor: 'Sarah Johnson',
+      time: 'January 18, 2024, 10:00 AM',
+    },
+  ];
+
+  const handleMentorClick = (mentorId: string) => {
+    setSelectedMentor(mentorId);
   };
 
   const handleAddToWaitlist = (mentorId: string) => {
-    toast({
-      title: "Added to Waitlist",
-      description: "You've been added to the mentor's waitlist. The team will be notified.",
-    });
+    console.log(`Adding mentor ${mentorId} to waitlist`);
+    setShowWaitlist(true);
   };
 
-  if (showMentorProfile) {
+  const handleScheduleCall = (date: Date, time: string, mentor: string) => {
+    console.log(`Scheduling call with ${mentor} on ${date.toDateString()} at ${time}`);
+    // Here you would typically make an API call to schedule the call
+  };
+
+  if (selectedMentor) {
     return (
-      <MentorProfile
-        mentorId={selectedMentorId}
-        onClose={() => setShowMentorProfile(false)}
+      <MentorProfile 
+        mentorId={selectedMentor} 
+        onClose={() => setSelectedMentor(null)}
         onAddToWaitlist={handleAddToWaitlist}
+      />
+    );
+  }
+
+  if (showWaitlist) {
+    return (
+      <WaitlistManager 
+        userRole="startup"
+        onClose={() => setShowWaitlist(false)}
       />
     );
   }
@@ -58,270 +103,154 @@ const StartupDashboard = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold">Startup Dashboard</h2>
-        <Badge variant="outline" className="text-lg px-3 py-1">Cohort 2024-1</Badge>
+        <div>
+          <h1 className="text-3xl font-bold text-orange-600">Startup Dashboard</h1>
+          <p className="text-muted-foreground">Manage your mentorship journey</p>
+        </div>
+        <Button 
+          variant="outline" 
+          onClick={() => setShowWaitlist(true)}
+          className="border-orange-500 text-orange-600 hover:bg-orange-50"
+        >
+          <Bell className="mr-2 h-4 w-4" />
+          View Waitlist
+        </Button>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="booking">Book Slots</TabsTrigger>
-          <TabsTrigger value="mentors">My Mentors</TabsTrigger>
-          <TabsTrigger value="waitlist">Waitlist</TabsTrigger>
-          <TabsTrigger value="resources">Resources</TabsTrigger>
-          <TabsTrigger value="cohort">Cohort</TabsTrigger>
+          <TabsTrigger value="schedule">Schedule Calls</TabsTrigger>
+          <TabsTrigger value="mentors">Find Mentors</TabsTrigger>
+          <TabsTrigger value="follow-up">Post-Call</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <TabsContent value="overview" className="space-y-6">
+          {/* Quick Stats */}
+          <div className="grid gap-4 md:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Upcoming Calls</CardTitle>
-                <Phone className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">3</div>
-                <p className="text-xs text-muted-foreground">Next: Tomorrow 2 PM</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Sessions</CardTitle>
-                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Total Calls</CardTitle>
+                <Phone className="h-4 w-4 text-orange-500" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">12</div>
-                <p className="text-xs text-muted-foreground">This month</p>
+                <p className="text-xs text-muted-foreground">+2 from last month</p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Mentors</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Mentors Contacted</CardTitle>
+                <Users className="h-4 w-4 text-orange-500" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">5</div>
-                <p className="text-xs text-muted-foreground">Assigned to you</p>
+                <p className="text-xs text-muted-foreground">+1 from last month</p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pending Forms</CardTitle>
-                <BookOpen className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Waitlist Length</CardTitle>
+                <Clock className="h-4 w-4 text-orange-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">2</div>
-                <p className="text-xs text-muted-foreground">Due this week</p>
+                <div className="text-2xl font-bold">3</div>
+                <p className="text-xs text-muted-foreground">-1 from last month</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Resources Accessed</CardTitle>
+                <BookOpen className="h-4 w-4 text-orange-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">28</div>
+                <p className="text-xs text-muted-foreground">+5 from last month</p>
               </CardContent>
             </Card>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          {/* Recent Activity and Upcoming Calls */}
+          <div className="grid gap-6 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>My Scheduled Calls</CardTitle>
+                <CardTitle className="flex items-center space-x-2 text-orange-600">
+                  <MessageSquare className="h-5 w-5" />
+                  <span>Recent Activity</span>
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex items-center justify-between p-3 border rounded">
-                    <div className="flex items-center space-x-3">
-                      <Avatar>
-                        <AvatarFallback>M{i}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">Mentor {i}</p>
-                        <p className="text-sm text-muted-foreground">Dec {20 + i}, 2024 - 2:00 PM</p>
-                      </div>
-                    </div>
-                    <Badge>Scheduled</Badge>
-                  </div>
-                ))}
+              <CardContent>
+                <ul className="list-none space-y-3">
+                  {recentActivity.map((activity) => (
+                    <li key={activity.id} className="border-b pb-2 last:border-none">
+                      <div className="text-sm font-medium">{activity.description}</div>
+                      <div className="text-xs text-muted-foreground">{activity.time}</div>
+                    </li>
+                  ))}
+                </ul>
               </CardContent>
             </Card>
-
+            
             <Card>
               <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
+                <CardTitle className="flex items-center space-x-2 text-orange-600">
+                  <Calendar className="h-5 w-5" />
+                  <span>Upcoming Calls</span>
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <Button className="w-full" onClick={handleBookSlot}>
-                  <Calendar className="mr-2 h-4 w-4" />
-                  Book New Session
-                </Button>
-                <Button variant="outline" className="w-full">
-                  <MessageSquare className="mr-2 h-4 w-4" />
-                  Contact Conquest POC
-                </Button>
-                <Button variant="outline" className="w-full">
-                  <BookOpen className="mr-2 h-4 w-4" />
-                  View Resources
-                </Button>
+              <CardContent>
+                <ul className="list-none space-y-3">
+                  {upcomingCalls.map((call) => (
+                    <li key={call.id} className="border-b pb-2 last:border-none">
+                      <div className="text-sm font-medium">Call with {call.mentor}</div>
+                      <div className="text-xs text-muted-foreground">{call.time}</div>
+                    </li>
+                  ))}
+                </ul>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
 
-        <TabsContent value="booking" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Book a Mentor Session</CardTitle>
-              <CardDescription>Select a mentor and book an available slot</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <Label htmlFor="mentor-select">Select Mentor</Label>
-                  <select 
-                    id="mentor-select"
-                    value={selectedMentor}
-                    onChange={(e) => setSelectedMentor(e.target.value)}
-                    className="w-full mt-1 p-2 border rounded"
-                  >
-                    <option value="">Choose a mentor...</option>
-                    <option value="john">John Smith - Product Strategy</option>
-                    <option value="sarah">Sarah Johnson - Marketing</option>
-                    <option value="mike">Mike Chen - Technology</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <Label>Available This Week</Label>
-                  <div className="mt-1 space-y-2">
-                    {['Dec 21 - 2:00 PM', 'Dec 22 - 10:00 AM', 'Dec 23 - 4:00 PM'].map((slot, i) => (
-                      <Button key={i} variant="outline" size="sm" onClick={handleBookSlot}>
-                        {slot}
-                      </Button>
+        <TabsContent value="schedule">
+          <CallScheduler 
+            userRole="startup" 
+            onScheduleCall={handleScheduleCall}
+          />
+        </TabsContent>
+
+        <TabsContent value="mentors" className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-3">
+            {mockMentors.map((mentor) => (
+              <Card key={mentor.id} className="hover:shadow-md transition-shadow duration-200">
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold">{mentor.name}</CardTitle>
+                  <CardDescription>{mentor.title}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ul className="list-disc pl-4 space-y-1 text-sm">
+                    {mentor.expertise.map((skill, index) => (
+                      <li key={index}>{skill}</li>
                     ))}
-                  </div>
-                </div>
-              </div>
-              
-              <div className="pt-4 border-t">
-                <Label htmlFor="calendly-link">Or use direct Calendly link</Label>
-                <Input 
-                  id="calendly-link"
-                  placeholder="Paste mentor's Calendly link here" 
-                  className="mt-1"
-                />
-                <Button className="mt-2" onClick={handleBookSlot}>Book via Calendly</Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Contact Team / Send Suggestion</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Textarea 
-                placeholder="Type your suggestion or query here..."
-                value={suggestion}
-                onChange={(e) => setSuggestion(e.target.value)}
-              />
-              <Button onClick={handleSendSuggestion}>Send to Team</Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="mentors" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>My Mentors</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2">
-                {[
-                  { id: '1', name: 'John Smith', role: 'Product Strategy', type: 'Founder Mentor' },
-                  { id: '2', name: 'Sarah Johnson', role: 'Marketing', type: 'Expert' },
-                  { id: '3', name: 'Mike Chen', role: 'Technology', type: 'Coach' },
-                  { id: '4', name: 'Lisa Wong', role: 'Finance', type: 'Expert' }
-                ].map((mentor, i) => (
-                  <div key={i} className="flex items-center justify-between p-4 border rounded">
-                    <div className="flex items-center space-x-3">
-                      <Avatar>
-                        <AvatarFallback>{mentor.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">{mentor.name}</p>
-                        <p className="text-sm text-muted-foreground">{mentor.role}</p>
-                        <Badge variant="secondary" className="text-xs">{mentor.type}</Badge>
-                      </div>
-                    </div>
-                    <div className="flex space-x-2">
-                      <Button size="sm" variant="outline" onClick={() => handleViewMentor(mentor.id)}>
-                        View Profile
-                      </Button>
-                      <Button size="sm">Book Session</Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="waitlist" className="space-y-4">
-          <WaitlistManager userRole="startup" />
-        </TabsContent>
-
-        <TabsContent value="resources" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Resources Available</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2">
-                {[
-                  'Startup Toolkit', 'Market Research Guide', 'Pitch Deck Template', 'Financial Planning',
-                  'Legal Resources', 'Technical Documentation', 'Marketing Playbook', 'Customer Discovery'
-                ].map((resource, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 border rounded">
-                    <span>{resource}</span>
-                    <Button size="sm" variant="outline">Download</Button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="cohort" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Startups in Cohort</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {['TechFlow', 'GreenStart', 'DataDrive', 'HealthTech Plus'].map((startup, i) => (
-                    <div key={i} className="flex items-center justify-between p-2 border rounded">
-                      <span>{startup}</span>
-                      <Button size="sm" variant="outline">Connect</Button>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>My Pod</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {['TechFlow', 'GreenStart'].map((startup, i) => (
-                    <div key={i} className="flex items-center justify-between p-2 border rounded">
-                      <span>{startup}</span>
-                      <Button size="sm">Chat</Button>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                  </ul>
+                  <Button 
+                    variant="outline" 
+                    className="mt-4 w-full border-orange-500 text-orange-600 hover:bg-orange-50"
+                    onClick={() => handleMentorClick(mentor.id)}
+                  >
+                    View Profile
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
           </div>
+        </TabsContent>
+
+        <TabsContent value="follow-up">
+          <PostCallFollowUp userRole="startup" />
         </TabsContent>
       </Tabs>
     </div>
