@@ -45,7 +45,7 @@ export const useChat = (mentorId?: string, startupId?: string) => {
         .select('*')
         .eq('mentor_id', mentorId)
         .eq('startup_id', startupId)
-        .single();
+        .maybeSingle();
 
       if (existingConversation && !fetchError) {
         console.log('Found existing conversation:', existingConversation);

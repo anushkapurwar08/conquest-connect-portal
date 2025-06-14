@@ -1,10 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Users, Target, TrendingUp } from 'lucide-react';
 import MentorCategoryList from './MentorCategoryList';
-import MentorProfile from './MentorProfile';
+import { supabase } from '@/integrations/supabase/client';
 
 interface MentorCategoryTabsProps {
   onSelectMentor: (mentorId: string, mentorType: 'founder_mentor' | 'expert' | 'coach') => void;
@@ -15,29 +15,49 @@ const MentorCategoryTabs: React.FC<MentorCategoryTabsProps> = ({
   onSelectMentor, 
   selectedMentorId 
 }) => {
-  const [selectedProfile, setSelectedProfile] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'founder_mentor' | 'expert' | 'coach'>('founder_mentor');
+  const [mentorCounts, setMentorCounts] = useState({
+    founder_mentor: 0,
+    expert: 0,
+    coach: 0
+  });
+
+  useEffect(() => {
+    fetchMentorCounts();
+  }, []);
+
+  const fetchMentorCounts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('mentors')
+        .select('mentor_type');
+
+      if (error) {
+        console.error('Error fetching mentor counts:', error);
+        return;
+      }
+
+      const counts = {
+        founder_mentor: 0,
+        expert: 0,
+        coach: 0
+      };
+
+      data?.forEach(mentor => {
+        if (mentor.mentor_type in counts) {
+          counts[mentor.mentor_type as keyof typeof counts]++;
+        }
+      });
+
+      setMentorCounts(counts);
+    } catch (error) {
+      console.error('Error fetching mentor counts:', error);
+    }
+  };
 
   const handleSelectMentor = (mentorId: string) => {
     onSelectMentor(mentorId, activeTab);
   };
-
-  const handleOpenProfile = (mentorId: string) => {
-    setSelectedProfile(mentorId);
-  };
-
-  const handleCloseProfile = () => {
-    setSelectedProfile(null);
-  };
-
-  if (selectedProfile) {
-    return (
-      <MentorProfile
-        mentorId={selectedProfile}
-        onClose={handleCloseProfile}
-      />
-    );
-  }
 
   return (
     <Tabs 
@@ -49,17 +69,17 @@ const MentorCategoryTabs: React.FC<MentorCategoryTabsProps> = ({
         <TabsTrigger value="founder_mentor" className="flex items-center space-x-2">
           <Users className="h-4 w-4" />
           <span>Founder Mentors</span>
-          <Badge variant="secondary" className="ml-1">3</Badge>
+          <Badge variant="secondary" className="ml-1">{mentorCounts.founder_mentor}</Badge>
         </TabsTrigger>
         <TabsTrigger value="expert" className="flex items-center space-x-2">
           <Target className="h-4 w-4" />
           <span>Experts</span>
-          <Badge variant="secondary" className="ml-1">8</Badge>
+          <Badge variant="secondary" className="ml-1">{mentorCounts.expert}</Badge>
         </TabsTrigger>
         <TabsTrigger value="coach" className="flex items-center space-x-2">
           <TrendingUp className="h-4 w-4" />
           <span>Coaches</span>
-          <Badge variant="secondary" className="ml-1">5</Badge>
+          <Badge variant="secondary" className="ml-1">{mentorCounts.coach}</Badge>
         </TabsTrigger>
       </TabsList>
       
@@ -67,7 +87,6 @@ const MentorCategoryTabs: React.FC<MentorCategoryTabsProps> = ({
         <MentorCategoryList
           mentorType="founder_mentor"
           onSelectMentor={handleSelectMentor}
-          onOpenProfile={handleOpenProfile}
           selectedMentorId={selectedMentorId}
         />
       </TabsContent>
@@ -76,7 +95,6 @@ const MentorCategoryTabs: React.FC<MentorCategoryTabsProps> = ({
         <MentorCategoryList
           mentorType="expert"
           onSelectMentor={handleSelectMentor}
-          onOpenProfile={handleOpenProfile}
           selectedMentorId={selectedMentorId}
         />
       </TabsContent>
@@ -85,7 +103,6 @@ const MentorCategoryTabs: React.FC<MentorCategoryTabsProps> = ({
         <MentorCategoryList
           mentorType="coach"
           onSelectMentor={handleSelectMentor}
-          onOpenProfile={handleOpenProfile}
           selectedMentorId={selectedMentorId}
         />
       </TabsContent>

@@ -1,10 +1,10 @@
 
 import React, { useEffect, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Calendar, Star, Building, DollarSign } from 'lucide-react';
+import { MessageSquare, Star, Building } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -12,7 +12,6 @@ interface MentorData {
   id: string;
   mentor_type: string;
   years_experience: number | null;
-  hourly_rate: number | null;
   specializations: string[] | null;
   profiles: {
     first_name: string | null;
@@ -37,21 +36,18 @@ interface ProcessedMentor {
   typeSpecific: string;
   availability: string;
   yearsExperience: number;
-  hourlyRate: number;
   specializations: string[];
 }
 
 interface MentorCategoryListProps {
   mentorType: 'founder_mentor' | 'expert' | 'coach';
   onSelectMentor: (mentorId: string) => void;
-  onOpenProfile: (mentorId: string) => void;
   selectedMentorId?: string;
 }
 
 const MentorCategoryList: React.FC<MentorCategoryListProps> = ({ 
   mentorType, 
   onSelectMentor, 
-  onOpenProfile,
   selectedMentorId 
 }) => {
   const [mentors, setMentors] = useState<ProcessedMentor[]>([]);
@@ -72,7 +68,6 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
           id,
           mentor_type,
           years_experience,
-          hourly_rate,
           specializations,
           profiles!inner(
             first_name,
@@ -93,15 +88,14 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
           description: "Failed to load mentors. Please try again.",
           variant: "destructive"
         });
-        setMentors(getFallbackMentors());
         return;
       }
 
       console.log('Fetched mentors data:', mentorsData);
 
       if (!mentorsData || mentorsData.length === 0) {
-        console.log('No mentors found, using fallback data');
-        setMentors(getFallbackMentors());
+        console.log('No mentors found for type:', mentorType);
+        setMentors([]);
         return;
       }
 
@@ -123,7 +117,6 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
           typeSpecific: getTypeSpecific(mentor.mentor_type),
           availability: getAvailability(mentor.mentor_type),
           yearsExperience: mentor.years_experience || 5,
-          hourlyRate: mentor.hourly_rate || 200,
           specializations: mentor.specializations || []
         };
       });
@@ -131,48 +124,9 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
       setMentors(processedMentors);
     } catch (error) {
       console.error('Unexpected error fetching mentors:', error);
-      setMentors(getFallbackMentors());
     } finally {
       setLoading(false);
     }
-  };
-
-  const getFallbackMentors = (): ProcessedMentor[] => {
-    // Enhanced fallback data
-    const baseMentors = [
-      {
-        id: 'fallback-1',
-        name: 'Sarah Johnson',
-        expertise: ['Product Strategy', 'Go-to-Market', 'Fundraising'],
-        currentRole: 'Former CEO at TechCorp',
-        company: 'TechCorp (Acquired)',
-        bio: 'Serial entrepreneur with 3 successful exits. Expert in scaling B2B SaaS companies.',
-        rating: 4.9,
-        sessionsCompleted: 156,
-        yearsExperience: 15,
-        hourlyRate: 500,
-        specializations: ['B2B SaaS', 'Series A-C']
-      },
-      {
-        id: 'fallback-2',
-        name: 'Michael Chen',
-        expertise: ['Engineering', 'Team Building', 'Architecture'],
-        currentRole: 'CTO at ScaleX',
-        company: 'ScaleX Technologies',
-        bio: 'Former Google engineer, now CTO helping technical founders scale their teams.',
-        rating: 4.8,
-        sessionsCompleted: 89,
-        yearsExperience: 12,
-        hourlyRate: 350,
-        specializations: ['Backend Systems', 'Cloud Architecture']
-      }
-    ];
-
-    return baseMentors.map(mentor => ({
-      ...mentor,
-      typeSpecific: getTypeSpecific(mentorType),
-      availability: getAvailability(mentorType)
-    }));
   };
 
   const getTypeSpecific = (type: string): string => {
@@ -332,10 +286,6 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
                         </div>
                         
                         <div className="flex items-center space-x-2">
-                          <div className="flex items-center space-x-1 text-green-600">
-                            <DollarSign className="h-4 w-4" />
-                            <span className="font-medium">${mentor.hourlyRate}/hr</span>
-                          </div>
                           <span className="text-green-600 text-xs font-medium">{mentor.availability}</span>
                         </div>
                       </div>
@@ -343,14 +293,6 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
                   </div>
                   
                   <div className="flex flex-col space-y-2 ml-4">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onOpenProfile(mentor.id)}
-                      className="min-w-[100px]"
-                    >
-                      View Profile
-                    </Button>
                     <Button
                       size="sm"
                       onClick={() => onSelectMentor(mentor.id)}
