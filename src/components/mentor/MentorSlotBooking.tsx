@@ -13,7 +13,7 @@ interface TimeSlot {
   start_time: string;
   end_time: string;
   is_available: boolean;
-  mentor: {
+  mentors: {
     id: string;
     mentor_type: string;
     profiles: {
@@ -221,7 +221,7 @@ const MentorSlotBooking: React.FC<MentorSlotBookingProps> = ({ onSlotBooked }) =
         <div className="space-y-4">
           {availableSlots.map((slot) => {
             const { date, time } = formatDateTime(slot.start_time);
-            const mentor = slot.mentor;
+            const mentor = slot.mentors;
             const mentorName = mentor.profiles.first_name && mentor.profiles.last_name
               ? `${mentor.profiles.first_name} ${mentor.profiles.last_name}`
               : mentor.profiles.username;
