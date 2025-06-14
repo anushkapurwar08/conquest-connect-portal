@@ -6,6 +6,20 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { MessageSquare, Calendar, Star } from 'lucide-react';
 
+interface BaseMentor {
+  id: string;
+  name: string;
+  expertise: string[];
+  currentRole: string;
+  rating: number;
+  sessionsCompleted: number;
+}
+
+interface EnhancedMentor extends BaseMentor {
+  typeSpecific: string;
+  availability: string;
+}
+
 interface MentorCategoryListProps {
   mentorType: 'founder_mentor' | 'expert' | 'coach';
   onSelectMentor: (mentorId: string) => void;
@@ -20,8 +34,8 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
   selectedMentorId 
 }) => {
   // Mock data - in real app this would come from API filtered by mentor_type
-  const getMentorsByType = () => {
-    const baseMentors = [
+  const getMentorsByType = (): EnhancedMentor[] => {
+    const baseMentors: BaseMentor[] = [
       {
         id: '1',
         name: 'Sarah Johnson',
@@ -69,7 +83,11 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
           availability: 'Recurring sessions'
         }));
       default:
-        return baseMentors;
+        return baseMentors.map(mentor => ({
+          ...mentor,
+          typeSpecific: 'Mentor',
+          availability: 'Available'
+        }));
     }
   };
 
