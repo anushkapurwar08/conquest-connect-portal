@@ -75,40 +75,58 @@ export const useAuth = () => {
 
   const signInWithCredentials = async (username: string, password: string) => {
     try {
-      // Check credentials in our custom auth table
+      console.log('Attempting login for username:', username);
+      
+      // Check credentials in our custom auth table - use maybeSingle instead of single
       const { data: credentials, error: credError } = await supabase
         .from('auth_credentials')
         .select('*')
         .eq('username', username)
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
 
-      if (credError || !credentials) {
+      console.log('Credentials query result:', { credentials, credError });
+
+      if (credError) {
+        console.error('Database error:', credError);
+        throw new Error('Database error occurred');
+      }
+
+      if (!credentials) {
+        console.log('No credentials found for username:', username);
         throw new Error('Invalid credentials');
       }
 
-      // For now, we'll use a simple password comparison
-      // In production, you'd want to hash and compare properly
-      const isValidPassword = password === getPasswordFromHash(credentials.password_hash, credentials.username);
+      // Check password - simplified for demo purposes
+      const expectedPassword = getPasswordForUsername(credentials.username);
+      console.log('Expected password for', credentials.username, ':', expectedPassword);
+      console.log('Provided password:', password);
       
-      if (!isValidPassword) {
+      if (password !== expectedPassword) {
+        console.log('Password mismatch');
         throw new Error('Invalid credentials');
       }
+
+      console.log('Password verified, proceeding with Supabase auth');
 
       // Create or sign in user with Supabase Auth
       const email = `${username}@conquest.local`;
+      const supabasePassword = `${username}_${password}`;
       
       // Try to sign in first
       let { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email,
-        password: `${username}_${password}` // Use a combination as password
+        password: supabasePassword
       });
+
+      console.log('Supabase sign in result:', { signInData, signInError });
 
       // If sign in fails, try to sign up
       if (signInError && signInError.message.includes('Invalid login credentials')) {
+        console.log('Sign in failed, attempting sign up');
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
-          password: `${username}_${password}`,
+          password: supabasePassword,
           options: {
             data: {
               username: credentials.username,
@@ -118,13 +136,18 @@ export const useAuth = () => {
           }
         });
 
-        if (signUpError) throw signUpError;
+        if (signUpError) {
+          console.error('Sign up error:', signUpError);
+          throw signUpError;
+        }
         signInData = signUpData;
       } else if (signInError) {
+        console.error('Sign in error:', signInError);
         throw signInError;
       }
 
       if (signInData.user) {
+        console.log('Creating/updating profile for user:', signInData.user.id);
         // Create or update profile
         await createOrUpdateProfile(signInData.user.id, credentials);
       }
@@ -153,10 +176,8 @@ export const useAuth = () => {
     }
   };
 
-  // Helper function to extract password from our demo hash
-  const getPasswordFromHash = (hash: string, username: string) => {
-    // This is a simplified version for demo purposes
-    // In production, you'd use proper bcrypt comparison
+  // Helper function to get expected password for demo credentials
+  const getPasswordForUsername = (username: string) => {
     const passwordMap: { [key: string]: string } = {
       'techflow_conquest': 'techflow_refcode',
       'greenstart_conquest': 'greenstart_refcode',
