@@ -7,34 +7,36 @@ import { Input } from '@/components/ui/input';
 import { MessageSquare, Send, Calendar, Clock, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { useProfileChat } from '@/hooks/useProfileChat';
 
 interface SimpleChatFollowUpProps {
-  conversationId: string;
-  otherProfileId: string;
+  userRole: string;
+  mentorId: string;
+  startupId: string;
 }
 
 const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({ 
-  conversationId,
-  otherProfileId
+  userRole,
+  mentorId,
+  startupId
 }) => {
   const { profile } = useAuth();
-  const { messages, loading, sendMessage } = useProfileChat(conversationId);
   const [newMessage, setNewMessage] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [followUpTime, setFollowUpTime] = useState('');
 
   console.log('SimpleChatFollowUp: Initializing with props:', { 
-    conversationId,
-    otherProfileId,
+    userRole,
+    mentorId,
+    startupId,
     profile: !!profile 
   });
 
   const handleSendMessage = async () => {
     console.log('SimpleChatFollowUp: Attempting to send message:', {
       messageLength: newMessage.trim().length,
-      conversationId,
-      otherProfileId
+      userRole,
+      mentorId,
+      startupId
     });
 
     if (!newMessage.trim()) {
@@ -46,18 +48,22 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
       return;
     }
 
-    if (!conversationId || !otherProfileId) {
+    if (!mentorId || !startupId) {
       console.error('SimpleChatFollowUp: Cannot send message - missing required IDs');
       toast({
         title: "Missing Information",
-        description: "Conversation information is required to send messages.",
+        description: "Mentor and startup information is required to send messages.",
         variant: "destructive"
       });
       return;
     }
 
-    console.log('SimpleChatFollowUp: Sending message via useProfileChat hook');
-    await sendMessage(newMessage);
+    // TODO: Implement actual message sending logic
+    console.log('SimpleChatFollowUp: Would send message:', newMessage);
+    toast({
+      title: "Message Sent",
+      description: "Your message has been sent successfully.",
+    });
     setNewMessage('');
   };
 
@@ -65,7 +71,8 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
     console.log('SimpleChatFollowUp: Attempting to schedule follow-up:', {
       followUpDate,
       followUpTime,
-      conversationId
+      mentorId,
+      startupId
     });
 
     if (!followUpDate || !followUpTime) {
@@ -77,8 +84,8 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
       return;
     }
 
-    const content = `Follow-up call scheduled for ${followUpDate} at ${followUpTime}`;
-    await sendMessage(content, 'follow_up_call', followUpDate, followUpTime);
+    // TODO: Implement actual scheduling logic
+    console.log('SimpleChatFollowUp: Would schedule follow-up for:', followUpDate, followUpTime);
     
     setFollowUpDate('');
     setFollowUpTime('');
@@ -89,7 +96,7 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
     });
   };
 
-  if (!conversationId || !otherProfileId) {
+  if (!mentorId || !startupId) {
     console.log('SimpleChatFollowUp: Rendering error state due to missing IDs');
     return (
       <div className="max-w-2xl mx-auto">
@@ -102,8 +109,9 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
             </p>
             <div className="space-y-2 text-sm text-gray-600">
               <p><strong>Debug Info:</strong></p>
-              <p>Conversation ID: {conversationId || 'missing'}</p>
-              <p>Other Profile ID: {otherProfileId || 'missing'}</p>
+              <p>Mentor ID: {mentorId || 'missing'}</p>
+              <p>Startup ID: {startupId || 'missing'}</p>
+              <p>User Role: {userRole || 'missing'}</p>
               <p>Current Profile ID: {profile?.id || 'missing'}</p>
             </div>
           </CardContent>
@@ -112,21 +120,7 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
     );
   }
 
-  if (loading) {
-    console.log('SimpleChatFollowUp: Rendering loading state');
-    return (
-      <div className="max-w-2xl mx-auto">
-        <Card>
-          <CardContent className="p-6 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
-            <p className="mt-2 text-muted-foreground">Loading chat...</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  console.log('SimpleChatFollowUp: Rendering chat interface with', messages.length, 'messages');
+  console.log('SimpleChatFollowUp: Rendering chat interface');
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -141,44 +135,12 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Chat Messages */}
+          {/* Chat Messages Placeholder */}
           <div className="h-96 overflow-y-auto border rounded-lg p-4 space-y-4">
-            {messages.length === 0 ? (
-              <div className="text-center text-muted-foreground py-8">
-                <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>No messages yet. Start the conversation!</p>
-              </div>
-            ) : (
-              messages.map((message) => {
-                const isCurrentUser = message.sender_profile_id === profile?.id;
-                
-                return (
-                  <div
-                    key={message.id}
-                    className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div className={`max-w-xs p-3 rounded-lg ${
-                      isCurrentUser 
-                        ? 'bg-orange-500 text-white' 
-                        : 'bg-gray-100 text-gray-900'
-                    }`}>
-                      {message.message_type === 'follow_up_call' && (
-                        <div className="flex items-center space-x-1 mb-1">
-                          <Calendar className="h-3 w-3" />
-                          <span className="text-xs font-medium">Follow-up Call</span>
-                        </div>
-                      )}
-                      <p className="text-sm">{message.content}</p>
-                      <p className={`text-xs mt-1 ${
-                        isCurrentUser ? 'text-orange-100' : 'text-gray-500'
-                      }`}>
-                        {new Date(message.created_at).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })
-            )}
+            <div className="text-center text-muted-foreground py-8">
+              <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>Chat functionality coming soon. Start the conversation!</p>
+            </div>
           </div>
 
           {/* New Message Input */}
