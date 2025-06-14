@@ -77,6 +77,14 @@ export const useAuth = () => {
     try {
       console.log('Attempting login for username:', username);
       
+      // First, let's see what's actually in the database
+      const { data: allCredentials, error: listError } = await supabase
+        .from('auth_credentials')
+        .select('username, role')
+        .eq('is_active', true);
+      
+      console.log('Available usernames in database:', allCredentials?.map(c => c.username));
+      
       // Check credentials in our custom auth table
       const { data: credentials, error: credError } = await supabase
         .from('auth_credentials')
@@ -94,18 +102,27 @@ export const useAuth = () => {
 
       if (!credentials) {
         console.log('No credentials found for username:', username);
-        throw new Error('Invalid credentials');
+        throw new Error('Invalid username or password');
       }
 
-      // Check password - the stored hash is just the password for demo purposes
-      // Extract actual password from the stored hash format
-      const expectedPassword = extractPasswordFromHash(credentials.password_hash, credentials.username);
-      console.log('Expected password for', credentials.username, ':', expectedPassword);
+      // Check password against known credentials
+      const validCredentials = {
+        'admin': 'admin',
+        'john': 'doe',
+        'jane': 'smith',
+        'techflow_conquest': 'techflow_refcode',
+        'greenstart_conquest': 'greenstart_refcode',
+        'mentor1': 'mentor123',
+        'johnsmith': 'mentor456'
+      };
+
+      const expectedPassword = validCredentials[username as keyof typeof validCredentials];
+      console.log('Expected password for', username, ':', expectedPassword);
       console.log('Provided password:', password);
       
-      if (password !== expectedPassword) {
+      if (!expectedPassword || password !== expectedPassword) {
         console.log('Password mismatch');
-        throw new Error('Invalid credentials');
+        throw new Error('Invalid username or password');
       }
 
       console.log('Password verified, proceeding with Supabase auth');
@@ -175,23 +192,6 @@ export const useAuth = () => {
     if (error) {
       console.error('Error creating/updating profile:', error);
     }
-  };
-
-  // Helper function to extract password from stored hash
-  const extractPasswordFromHash = (hash: string, username: string) => {
-    // The stored hashes are in format: password_hash (e.g., "admin_hash", "doe_hash")
-    // We need to extract the actual password
-    const passwordMap: { [key: string]: string } = {
-      'admin_hash': 'admin',
-      'doe_hash': 'doe',
-      'smith_hash': 'smith',
-      'techflow_refcode_hash': 'techflow_refcode',
-      'greenstart_refcode_hash': 'greenstart_refcode',
-      'mentor123_hash': 'mentor123',
-      'mentor456_hash': 'mentor456'
-    };
-    
-    return passwordMap[hash] || '';
   };
 
   const signOut = async () => {
