@@ -11,12 +11,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import SharedMentorNotes from './SharedMentorNotes';
 import PostCallFollowUp from './PostCallFollowUp';
+import StartupProfile from '@/components/startup/StartupProfile';
 
 const MentorDashboard = () => {
   const [calendlyLink, setCalendlyLink] = useState('');
   const [mentorType] = useState('coach'); // Can be 'coach', 'founder-mentor', 'expert'
   const [showPostCallModal, setShowPostCallModal] = useState(false);
   const [selectedCall, setSelectedCall] = useState(null);
+  const [showStartupProfile, setShowStartupProfile] = useState(false);
+  const [selectedStartupId, setSelectedStartupId] = useState('');
 
   const handleUpdateCalendly = () => {
     toast({
@@ -35,6 +38,20 @@ const MentorDashboard = () => {
     setSelectedCall(call);
     setShowPostCallModal(true);
   };
+
+  const handleViewStartup = (startupId: string) => {
+    setSelectedStartupId(startupId);
+    setShowStartupProfile(true);
+  };
+
+  if (showStartupProfile) {
+    return (
+      <StartupProfile
+        startupId={selectedStartupId}
+        onClose={() => setShowStartupProfile(false)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -199,18 +216,18 @@ const MentorDashboard = () => {
               <div className="grid gap-4 md:grid-cols-2">
                 {(mentorType === 'coach' ? 
                   [
-                    { name: 'TechFlow', founder: 'John Doe', lastSession: '2 days ago', hasPostCall: true },
-                    { name: 'GreenStart', founder: 'Jane Smith', lastSession: '1 week ago', hasPostCall: false }
+                    { id: '1', name: 'TechFlow', founder: 'John Doe', lastSession: '2 days ago', hasPostCall: true },
+                    { id: '2', name: 'GreenStart', founder: 'Jane Smith', lastSession: '1 week ago', hasPostCall: false }
                   ] :
                   [
-                    { name: 'TechFlow', founder: 'John Doe', lastSession: '2 days ago', hasPostCall: true },
-                    { name: 'GreenStart', founder: 'Jane Smith', lastSession: '1 week ago', hasPostCall: false },
-                    { name: 'DataDrive', founder: 'Mike Johnson', lastSession: '3 days ago', hasPostCall: true },
-                    { name: 'HealthTech', founder: 'Sarah Wilson', lastSession: '5 days ago', hasPostCall: false },
-                    { name: 'EduStart', founder: 'Chris Brown', lastSession: '1 week ago', hasPostCall: true },
-                    { name: 'FinTech Pro', founder: 'Lisa Chen', lastSession: '4 days ago', hasPostCall: false },
-                    { name: 'AI Solutions', founder: 'David Kim', lastSession: '2 days ago', hasPostCall: true },
-                    { name: 'CleanEnergy', founder: 'Emma Davis', lastSession: '6 days ago', hasPostCall: false }
+                    { id: '1', name: 'TechFlow', founder: 'John Doe', lastSession: '2 days ago', hasPostCall: true },
+                    { id: '2', name: 'GreenStart', founder: 'Jane Smith', lastSession: '1 week ago', hasPostCall: false },
+                    { id: '3', name: 'DataDrive', founder: 'Mike Johnson', lastSession: '3 days ago', hasPostCall: true },
+                    { id: '4', name: 'HealthTech', founder: 'Sarah Wilson', lastSession: '5 days ago', hasPostCall: false },
+                    { id: '5', name: 'EduStart', founder: 'Chris Brown', lastSession: '1 week ago', hasPostCall: true },
+                    { id: '6', name: 'FinTech Pro', founder: 'Lisa Chen', lastSession: '4 days ago', hasPostCall: false },
+                    { id: '7', name: 'AI Solutions', founder: 'David Kim', lastSession: '2 days ago', hasPostCall: true },
+                    { id: '8', name: 'CleanEnergy', founder: 'Emma Davis', lastSession: '6 days ago', hasPostCall: false }
                   ].slice(0, mentorType === 'founder-mentor' ? 8 : 4)
                 ).map((startup, i) => (
                   <div key={i} className="p-4 border rounded space-y-3">
@@ -225,6 +242,13 @@ const MentorDashboard = () => {
                       </div>
                     </div>
                     <div className="flex space-x-2">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => handleViewStartup(startup.id)}
+                      >
+                        View Profile
+                      </Button>
                       <Button size="sm" variant="outline">
                         <MessageSquare className="mr-1 h-3 w-3" />
                         WhatsApp

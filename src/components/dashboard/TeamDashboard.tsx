@@ -1,139 +1,82 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Calendar, Users, Phone, Clock, AlertCircle, CheckCircle, Upload, FileText, Eye, MessageSquare } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Calendar, Users, MessageSquare, Phone, FileText, Clock, Settings, AlertCircle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { toast } from '@/hooks/use-toast';
+import WaitlistManager from '@/components/waitlist/WaitlistManager';
 
 const TeamDashboard = () => {
-  const [searchTerm, setSearchTerm] = useState('');
   const [selectedPod, setSelectedPod] = useState('all');
   const [uploadingNotes, setUploadingNotes] = useState(false);
 
-  const currentCalls = [
-    { id: 1, startup: 'TechFlow', mentor: 'John Smith', status: 'ongoing', duration: '25 mins' },
-    { id: 2, startup: 'GreenStart', mentor: 'Sarah Johnson', status: 'ongoing', duration: '10 mins' },
-  ];
+  // Mock data for calls per pod
+  const podCalls = {
+    'pod-a': [
+      { id: '1', startup: 'TechFlow', mentor: 'John Smith', date: '2024-12-20', time: '2:00 PM', status: 'completed', hasNotes: true },
+      { id: '2', startup: 'GreenStart', mentor: 'Sarah Johnson', date: '2024-12-21', time: '10:00 AM', status: 'scheduled', hasNotes: false }
+    ],
+    'pod-b': [
+      { id: '3', startup: 'DataDrive', mentor: 'Mike Chen', date: '2024-12-20', time: '3:00 PM', status: 'completed', hasNotes: false },
+      { id: '4', startup: 'HealthTech', mentor: 'Lisa Wong', date: '2024-12-22', time: '1:00 PM', status: 'scheduled', hasNotes: false }
+    ]
+  };
 
-  const scheduledCalls = [
-    { id: 1, startup: 'DataDrive', mentor: 'Mike Chen', time: '2:00 PM', date: 'Dec 21', status: 'confirmed' },
-    { id: 2, startup: 'HealthTech', mentor: 'Lisa Wong', time: '3:30 PM', date: 'Dec 21', status: 'confirmed' },
-    { id: 3, startup: 'EduStart', mentor: 'David Park', time: '10:00 AM', date: 'Dec 22', status: 'pending' },
-    { id: 4, startup: 'FinTech Pro', mentor: 'Emma Davis', time: '11:30 AM', date: 'Dec 22', status: 'confirmed' },
-    { id: 5, startup: 'AI Solutions', mentor: 'Chris Brown', time: '2:00 PM', date: 'Dec 22', status: 'rescheduled' },
-  ];
+  const getAllCalls = () => {
+    return Object.values(podCalls).flat();
+  };
 
-  const recentActivity = [
-    { type: 'completed', startup: 'TechFlow', mentor: 'John Smith', time: '1 hour ago' },
-    { type: 'cancelled', startup: 'GreenStart', mentor: 'Sarah Johnson', time: '2 hours ago' },
-    { type: 'scheduled', startup: 'DataDrive', mentor: 'Mike Chen', time: '3 hours ago' },
-    { type: 'feedback', startup: 'HealthTech', mentor: 'Lisa Wong', time: '4 hours ago' },
-  ];
+  const getCallsForPod = (podId: string) => {
+    return podCalls[podId] || [];
+  };
 
-  const pods = [
-    { id: 'pod-a', name: 'Pod A', startups: ['TechFlow', 'GreenStart', 'DataDrive'] },
-    { id: 'pod-b', name: 'Pod B', startups: ['HealthTech', 'EduStart', 'FinTech Pro'] },
-    { id: 'pod-c', name: 'Pod C', startups: ['AI Solutions', 'CleanEnergy', 'FoodTech'] },
-  ];
-
-  const callsWithNotes = [
-    {
-      id: 1,
-      startup: 'TechFlow',
-      mentor: 'John Smith',
-      pod: 'Pod A',
-      date: 'Dec 20, 2024',
-      time: '2:00 PM',
-      duration: '45 mins',
-      hasNotes: true,
-      notesUploaded: true,
-      sharedWithMentors: false
-    },
-    {
-      id: 2,
-      startup: 'GreenStart',
-      mentor: 'Sarah Johnson',
-      pod: 'Pod A',
-      date: 'Dec 20, 2024',
-      time: '3:30 PM',
-      duration: '30 mins',
-      hasNotes: true,
-      notesUploaded: false,
-      sharedWithMentors: false
-    },
-    {
-      id: 3,
-      startup: 'HealthTech',
-      mentor: 'Lisa Wong',
-      pod: 'Pod B',
-      date: 'Dec 19, 2024',
-      time: '10:00 AM',
-      duration: '50 mins',
-      hasNotes: false,
-      notesUploaded: false,
-      sharedWithMentors: false
-    }
-  ];
-
-  const filteredCalls = scheduledCalls.filter(call => 
-    call.startup.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    call.mentor.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const filteredCallsByPod = callsWithNotes.filter(call => 
-    selectedPod === 'all' || call.pod === selectedPod
-  );
-
-  const handleUploadNotes = (callId: number) => {
+  const handleUploadNotes = (callId: string) => {
     setUploadingNotes(true);
-    // Simulate upload
     setTimeout(() => {
       setUploadingNotes(false);
+      toast({
+        title: "Notes Uploaded",
+        description: "Meeting notes have been uploaded and shared with relevant mentors.",
+      });
     }, 2000);
   };
+
+  const displayCalls = selectedPod === 'all' ? getAllCalls() : getCallsForPod(selectedPod);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold">Team Operations Dashboard</h2>
-        <Badge variant="outline" className="text-lg px-3 py-1">Live Operations</Badge>
+        <h2 className="text-3xl font-bold">Team Dashboard</h2>
+        <Badge variant="outline" className="text-lg px-3 py-1">Operations View</Badge>
       </div>
 
-      <Tabs defaultValue="live" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="live">Live View</TabsTrigger>
-          <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
-          <TabsTrigger value="pods">Pods & Notes</TabsTrigger>
+      <Tabs defaultValue="overview" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="calls">All Calls</TabsTrigger>
+          <TabsTrigger value="pods">Pod Management</TabsTrigger>
+          <TabsTrigger value="waitlist">Waitlist</TabsTrigger>
+          <TabsTrigger value="notes">Notes Management</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="management">Management</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="live" className="space-y-4">
+        <TabsContent value="overview" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Current Calls</CardTitle>
-                <Phone className="h-4 w-4 text-green-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">{currentCalls.length}</div>
-                <p className="text-xs text-muted-foreground">Active now</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Today's Sessions</CardTitle>
-                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Total Calls Today</CardTitle>
+                <Phone className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">12</div>
-                <p className="text-xs text-muted-foreground">8 completed, 4 pending</p>
+                <p className="text-xs text-muted-foreground">8 completed, 4 scheduled</p>
               </CardContent>
             </Card>
 
@@ -143,19 +86,30 @@ const TeamDashboard = () => {
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">15</div>
-                <p className="text-xs text-muted-foreground">Out of 23 total</p>
+                <div className="text-2xl font-bold">25</div>
+                <p className="text-xs text-muted-foreground">Across all pods</p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Issues</CardTitle>
-                <AlertCircle className="h-4 w-4 text-red-600" />
+                <CardTitle className="text-sm font-medium">Pending Notes</CardTitle>
+                <FileText className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-red-600">2</div>
-                <p className="text-xs text-muted-foreground">Require attention</p>
+                <div className="text-2xl font-bold">5</div>
+                <p className="text-xs text-muted-foreground">Need to be uploaded</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Waitlist Requests</CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">8</div>
+                <p className="text-xs text-muted-foreground">Pending action</p>
               </CardContent>
             </Card>
           </div>
@@ -163,121 +117,54 @@ const TeamDashboard = () => {
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center">
-                  <div className="w-3 h-3 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                  Current Calls
-                </CardTitle>
+                <CardTitle>Today's Schedule</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {currentCalls.map((call) => (
-                  <div key={call.id} className="flex items-center justify-between p-3 border rounded bg-green-50">
-                    <div className="flex items-center space-x-3">
-                      <Avatar>
-                        <AvatarFallback>{call.startup[0]}</AvatarFallback>
-                      </Avatar>
+              <CardContent>
+                <div className="space-y-3">
+                  {displayCalls.slice(0, 5).map((call) => (
+                    <div key={call.id} className="flex items-center justify-between p-2 border rounded">
                       <div>
-                        <p className="font-medium">{call.startup}</p>
-                        <p className="text-sm text-muted-foreground">with {call.mentor}</p>
+                        <p className="font-medium">{call.startup} × {call.mentor}</p>
+                        <p className="text-sm text-muted-foreground">{call.date} at {call.time}</p>
                       </div>
+                      <Badge variant={call.status === 'completed' ? 'default' : 'secondary'}>
+                        {call.status}
+                      </Badge>
                     </div>
-                    <div className="text-right">
-                      <Badge className="bg-green-600">{call.duration}</Badge>
-                    </div>
-                  </div>
-                ))}
-                {currentCalls.length === 0 && (
-                  <p className="text-center text-muted-foreground py-4">No active calls</p>
-                )}
+                  ))}
+                </div>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
+                <CardTitle>Recent Alerts</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {recentActivity.map((activity, i) => (
-                  <div key={i} className="flex items-center space-x-3 text-sm">
-                    {activity.type === 'completed' && <CheckCircle className="h-4 w-4 text-green-600" />}
-                    {activity.type === 'cancelled' && <AlertCircle className="h-4 w-4 text-red-600" />}
-                    {activity.type === 'scheduled' && <Calendar className="h-4 w-4 text-blue-600" />}
-                    {activity.type === 'feedback' && <Users className="h-4 w-4 text-purple-600" />}
-                    <div className="flex-1">
-                      <p>{activity.startup} - {activity.mentor}</p>
-                      <p className="text-muted-foreground">{activity.time}</p>
-                    </div>
-                    <Badge variant="outline" className="capitalize">{activity.type}</Badge>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2 text-sm">
+                    <AlertCircle className="h-4 w-4 text-orange-500" />
+                    <span>3 startups added John Smith to waitlist</span>
                   </div>
-                ))}
+                  <div className="flex items-center space-x-2 text-sm">
+                    <AlertCircle className="h-4 w-4 text-red-500" />
+                    <span>Meeting notes missing for 2 sessions</span>
+                  </div>
+                  <div className="flex items-center space-x-2 text-sm">
+                    <AlertCircle className="h-4 w-4 text-blue-500" />
+                    <span>New mentor Sarah Wilson joined</span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
 
-        <TabsContent value="scheduled" className="space-y-4">
+        <TabsContent value="calls" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>All Scheduled Calls</CardTitle>
-              <CardDescription>View and manage upcoming sessions</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Input 
-                placeholder="Search by startup or mentor name..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              
-              <div className="space-y-3">
-                {filteredCalls.map((call) => (
-                  <div key={call.id} className="flex items-center justify-between p-4 border rounded">
-                    <div className="flex items-center space-x-4">
-                      <Avatar>
-                        <AvatarFallback>{call.startup[0]}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">{call.startup}</p>
-                        <p className="text-sm text-muted-foreground">with {call.mentor}</p>
-                        <p className="text-sm text-muted-foreground">{call.date} at {call.time}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Badge 
-                        variant={
-                          call.status === 'confirmed' ? 'default' : 
-                          call.status === 'pending' ? 'secondary' : 'destructive'
-                        }
-                      >
-                        {call.status}
-                      </Badge>
-                      <Button size="sm" variant="outline">Manage</Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="pods" className="space-y-4">
-          <div className="flex items-center space-x-4 mb-4">
-            <Label htmlFor="pod-filter">Filter by Pod:</Label>
-            <select 
-              id="pod-filter"
-              value={selectedPod}
-              onChange={(e) => setSelectedPod(e.target.value)}
-              className="bg-background border border-border rounded px-3 py-2"
-            >
-              <option value="all">All Pods</option>
-              {pods.map(pod => (
-                <option key={pod.id} value={pod.name}>{pod.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Pod Call Management & Notes</CardTitle>
-              <CardDescription>Track calls per pod and manage meeting notes</CardDescription>
+              <CardTitle>All Scheduled & Completed Calls</CardTitle>
+              <CardDescription>Comprehensive view of all mentoring sessions</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -285,71 +172,42 @@ const TeamDashboard = () => {
                   <TableRow>
                     <TableHead>Startup</TableHead>
                     <TableHead>Mentor</TableHead>
-                    <TableHead>Pod</TableHead>
                     <TableHead>Date & Time</TableHead>
-                    <TableHead>Duration</TableHead>
-                    <TableHead>Notes Status</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Notes</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredCallsByPod.map((call) => (
+                  {getAllCalls().map((call) => (
                     <TableRow key={call.id}>
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <Avatar className="h-6 w-6">
-                            <AvatarFallback className="text-xs">{call.startup[0]}</AvatarFallback>
-                          </Avatar>
-                          <span className="font-medium">{call.startup}</span>
-                        </div>
-                      </TableCell>
+                      <TableCell className="font-medium">{call.startup}</TableCell>
                       <TableCell>{call.mentor}</TableCell>
+                      <TableCell>{call.date} {call.time}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">{call.pod}</Badge>
+                        <Badge variant={call.status === 'completed' ? 'default' : 'secondary'}>
+                          {call.status}
+                        </Badge>
                       </TableCell>
                       <TableCell>
-                        <div>
-                          <p className="text-sm">{call.date}</p>
-                          <p className="text-xs text-muted-foreground">{call.time}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>{call.duration}</TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          {call.hasNotes ? (
-                            <Badge className="bg-green-600">Notes Available</Badge>
-                          ) : (
-                            <Badge variant="secondary">No Notes</Badge>
-                          )}
-                          {call.notesUploaded ? (
-                            <Badge className="bg-blue-600">Uploaded</Badge>
-                          ) : call.hasNotes ? (
-                            <Badge variant="destructive">Pending Upload</Badge>
-                          ) : null}
-                        </div>
+                        {call.hasNotes ? (
+                          <Badge className="bg-green-600">Available</Badge>
+                        ) : (
+                          <Badge variant="outline">Missing</Badge>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex space-x-2">
-                          {call.hasNotes && !call.notesUploaded && (
+                          <Button size="sm" variant="outline">View</Button>
+                          {call.status === 'completed' && !call.hasNotes && (
                             <Button 
                               size="sm" 
                               onClick={() => handleUploadNotes(call.id)}
                               disabled={uploadingNotes}
                             >
-                              <Upload className="mr-1 h-3 w-3" />
-                              Upload
+                              Upload Notes
                             </Button>
                           )}
-                          {call.hasNotes && (
-                            <Button size="sm" variant="outline">
-                              <Eye className="mr-1 h-3 w-3" />
-                              View
-                            </Button>
-                          )}
-                          <Button size="sm" variant="outline">
-                            <MessageSquare className="mr-1 h-3 w-3" />
-                            Share
-                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -358,136 +216,147 @@ const TeamDashboard = () => {
               </Table>
             </CardContent>
           </Card>
+        </TabsContent>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            {pods.map(pod => (
-              <Card key={pod.id}>
-                <CardHeader>
-                  <CardTitle className="text-lg">{pod.name}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span>Total Calls This Week:</span>
-                      <span className="font-bold">
-                        {filteredCallsByPod.filter(call => call.pod === pod.name).length}
-                      </span>
+        <TabsContent value="pods" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Pod-wise Call Management</CardTitle>
+              <CardDescription>View and manage calls by pod</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="pod-select">Select Pod</Label>
+                <select 
+                  id="pod-select"
+                  value={selectedPod}
+                  onChange={(e) => setSelectedPod(e.target.value)}
+                  className="w-full mt-1 p-2 border rounded"
+                >
+                  <option value="all">All Pods</option>
+                  <option value="pod-a">Pod A</option>
+                  <option value="pod-b">Pod B</option>
+                  <option value="pod-c">Pod C</option>
+                </select>
+              </div>
+
+              <div className="space-y-3">
+                {displayCalls.map((call) => (
+                  <div key={call.id} className="flex items-center justify-between p-3 border rounded">
+                    <div>
+                      <p className="font-medium">{call.startup} × {call.mentor}</p>
+                      <p className="text-sm text-muted-foreground">{call.date} at {call.time}</p>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Notes Uploaded:</span>
-                      <span className="font-bold text-green-600">
-                        {filteredCallsByPod.filter(call => call.pod === pod.name && call.notesUploaded).length}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Pending Notes:</span>
-                      <span className="font-bold text-red-600">
-                        {filteredCallsByPod.filter(call => call.pod === pod.name && call.hasNotes && !call.notesUploaded).length}
-                      </span>
-                    </div>
-                    <div className="pt-2">
-                      <p className="text-xs text-muted-foreground mb-2">Startups:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {pod.startups.map(startup => (
-                          <Badge key={startup} variant="outline" className="text-xs">
-                            {startup}
-                          </Badge>
-                        ))}
-                      </div>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant={call.status === 'completed' ? 'default' : 'secondary'}>
+                        {call.status}
+                      </Badge>
+                      {call.status === 'completed' && !call.hasNotes && (
+                        <Button size="sm" variant="outline">
+                          <FileText className="mr-1 h-3 w-3" />
+                          Add Notes
+                        </Button>
+                      )}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="waitlist" className="space-y-4">
+          <WaitlistManager userRole="team" />
+        </TabsContent>
+
+        <TabsContent value="notes" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Meeting Notes Management</CardTitle>
+              <CardDescription>Upload and distribute meeting notes to mentors and pods</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <Label htmlFor="session-select">Select Session</Label>
+                  <select id="session-select" className="w-full mt-1 p-2 border rounded">
+                    <option>TechFlow × John Smith - Dec 20, 2024</option>
+                    <option>GreenStart × Sarah Johnson - Dec 19, 2024</option>
+                    <option>DataDrive × Mike Chen - Dec 18, 2024</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="file-upload">Upload Notes</Label>
+                  <Input id="file-upload" type="file" className="mt-1" />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="notes-content">Or Add Notes Directly</Label>
+                <Textarea 
+                  id="notes-content"
+                  placeholder="Enter meeting notes here..."
+                  className="mt-1"
+                  rows={4}
+                />
+              </div>
+
+              <div className="flex space-x-2">
+                <Button>Upload to Mentor Profile</Button>
+                <Button variant="outline">Share with Pod</Button>
+                <Button variant="outline">Archive</Button>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Session Statistics</CardTitle>
+                <CardTitle>Call Statistics</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span>Completed Sessions (This Month)</span>
-                  <span className="font-bold">156</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Cancelled Sessions</span>
-                  <span className="font-bold text-red-600">8</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Rescheduled Sessions</span>
-                  <span className="font-bold text-yellow-600">12</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Average Session Duration</span>
-                  <span className="font-bold">42 mins</span>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>Total Calls This Month:</span>
+                    <span className="font-bold">156</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Average per Day:</span>
+                    <span className="font-bold">7.8</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Completion Rate:</span>
+                    <span className="font-bold">94%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>No-show Rate:</span>
+                    <span className="font-bold">6%</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Mentor Utilization</CardTitle>
+                <CardTitle>Pod Performance</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span>Active Mentors</span>
-                  <span className="font-bold">23</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Coaches</span>
-                  <span className="font-bold">8</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Founder Mentors</span>
-                  <span className="font-bold">10</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Experts</span>
-                  <span className="font-bold">5</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="management" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button className="w-full">Send Bulk Notifications</Button>
-                <Button variant="outline" className="w-full">Export Session Data</Button>
-                <Button variant="outline" className="w-full">Generate Reports</Button>
-                <Button variant="outline" className="w-full">Manage Mentor Assignments</Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>System Status</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span>Calendly Integration</span>
-                  <Badge className="bg-green-600">Online</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>WhatsApp Integration</span>
-                  <Badge className="bg-green-600">Online</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Email Notifications</span>
-                  <Badge className="bg-green-600">Online</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Database</span>
-                  <Badge className="bg-green-600">Online</Badge>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>Pod A:</span>
+                    <span className="font-bold">98% completion</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Pod B:</span>
+                    <span className="font-bold">92% completion</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Pod C:</span>
+                    <span className="font-bold">89% completion</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,10 +9,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
+import MentorProfile from '@/components/mentor/MentorProfile';
+import WaitlistManager from '@/components/waitlist/WaitlistManager';
 
 const StartupDashboard = () => {
   const [selectedMentor, setSelectedMentor] = useState('');
   const [suggestion, setSuggestion] = useState('');
+  const [showMentorProfile, setShowMentorProfile] = useState(false);
+  const [selectedMentorId, setSelectedMentorId] = useState('');
 
   const handleBookSlot = () => {
     toast({
@@ -30,6 +33,28 @@ const StartupDashboard = () => {
     setSuggestion('');
   };
 
+  const handleViewMentor = (mentorId: string) => {
+    setSelectedMentorId(mentorId);
+    setShowMentorProfile(true);
+  };
+
+  const handleAddToWaitlist = (mentorId: string) => {
+    toast({
+      title: "Added to Waitlist",
+      description: "You've been added to the mentor's waitlist. The team will be notified.",
+    });
+  };
+
+  if (showMentorProfile) {
+    return (
+      <MentorProfile
+        mentorId={selectedMentorId}
+        onClose={() => setShowMentorProfile(false)}
+        onAddToWaitlist={handleAddToWaitlist}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -38,10 +63,11 @@ const StartupDashboard = () => {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="booking">Book Slots</TabsTrigger>
           <TabsTrigger value="mentors">My Mentors</TabsTrigger>
+          <TabsTrigger value="waitlist">Waitlist</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
           <TabsTrigger value="cohort">Cohort</TabsTrigger>
         </TabsList>
@@ -208,10 +234,10 @@ const StartupDashboard = () => {
             <CardContent>
               <div className="grid gap-4 md:grid-cols-2">
                 {[
-                  { name: 'John Smith', role: 'Product Strategy', type: 'Founder Mentor' },
-                  { name: 'Sarah Johnson', role: 'Marketing', type: 'Expert' },
-                  { name: 'Mike Chen', role: 'Technology', type: 'Coach' },
-                  { name: 'Lisa Wong', role: 'Finance', type: 'Expert' }
+                  { id: '1', name: 'John Smith', role: 'Product Strategy', type: 'Founder Mentor' },
+                  { id: '2', name: 'Sarah Johnson', role: 'Marketing', type: 'Expert' },
+                  { id: '3', name: 'Mike Chen', role: 'Technology', type: 'Coach' },
+                  { id: '4', name: 'Lisa Wong', role: 'Finance', type: 'Expert' }
                 ].map((mentor, i) => (
                   <div key={i} className="flex items-center justify-between p-4 border rounded">
                     <div className="flex items-center space-x-3">
@@ -224,12 +250,21 @@ const StartupDashboard = () => {
                         <Badge variant="secondary" className="text-xs">{mentor.type}</Badge>
                       </div>
                     </div>
-                    <Button size="sm">Book Session</Button>
+                    <div className="flex space-x-2">
+                      <Button size="sm" variant="outline" onClick={() => handleViewMentor(mentor.id)}>
+                        View Profile
+                      </Button>
+                      <Button size="sm">Book Session</Button>
+                    </div>
                   </div>
                 ))}
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="waitlist" className="space-y-4">
+          <WaitlistManager userRole="startup" />
         </TabsContent>
 
         <TabsContent value="resources" className="space-y-4">
