@@ -154,6 +154,7 @@ export type Database = {
           created_at: string | null
           hourly_rate: number | null
           id: string
+          mentor_type: Database["public"]["Enums"]["mentor_type"]
           profile_id: string | null
           specializations: string[] | null
           years_experience: number | null
@@ -163,6 +164,7 @@ export type Database = {
           created_at?: string | null
           hourly_rate?: number | null
           id?: string
+          mentor_type?: Database["public"]["Enums"]["mentor_type"]
           profile_id?: string | null
           specializations?: string[] | null
           years_experience?: number | null
@@ -172,6 +174,7 @@ export type Database = {
           created_at?: string | null
           hourly_rate?: number | null
           id?: string
+          mentor_type?: Database["public"]["Enums"]["mentor_type"]
           profile_id?: string | null
           specializations?: string[] | null
           years_experience?: number | null
@@ -282,6 +285,39 @@ export type Database = {
           user_id?: string | null
           username?: string
           verified_id?: string | null
+        }
+        Relationships: []
+      }
+      scheduling_rules: {
+        Row: {
+          allow_recurring: boolean | null
+          created_at: string | null
+          default_duration_minutes: number | null
+          id: string
+          max_advance_booking_days: number | null
+          max_sessions_per_week: number | null
+          mentor_type: Database["public"]["Enums"]["mentor_type"]
+          min_advance_booking_hours: number | null
+        }
+        Insert: {
+          allow_recurring?: boolean | null
+          created_at?: string | null
+          default_duration_minutes?: number | null
+          id?: string
+          max_advance_booking_days?: number | null
+          max_sessions_per_week?: number | null
+          mentor_type: Database["public"]["Enums"]["mentor_type"]
+          min_advance_booking_hours?: number | null
+        }
+        Update: {
+          allow_recurring?: boolean | null
+          created_at?: string | null
+          default_duration_minutes?: number | null
+          id?: string
+          max_advance_booking_days?: number | null
+          max_sessions_per_week?: number | null
+          mentor_type?: Database["public"]["Enums"]["mentor_type"]
+          min_advance_booking_hours?: number | null
         }
         Relationships: []
       }
@@ -489,6 +525,7 @@ export type Database = {
       }
     }
     Enums: {
+      mentor_type: "founder_mentor" | "expert" | "coach"
       user_role: "startup" | "mentor" | "team"
     }
     CompositeTypes: {
@@ -605,6 +642,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      mentor_type: ["founder_mentor", "expert", "coach"],
       user_role: ["startup", "mentor", "team"],
     },
   },

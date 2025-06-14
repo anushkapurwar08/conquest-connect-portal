@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { MessageSquare, Send, Calendar, Clock } from 'lucide-react';
+import { MessageSquare, Send, Calendar, Clock, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useChat } from '@/hooks/useChat';
@@ -26,6 +26,11 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
   const [followUpDate, setFollowUpDate] = useState('');
   const [followUpTime, setFollowUpTime] = useState('');
 
+  console.log('SimpleChatFollowUp props:', { userRole, mentorId, startupId, profile: !!profile });
+
+  // Check if we have the required IDs
+  const hasRequiredIds = mentorId && startupId;
+
   // Get sender role for each message
   const getMessageSender = (senderProfileId: string): 'startup' | 'mentor' => {
     // For now, we'll determine sender based on current user
@@ -34,7 +39,23 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
   };
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim()) {
+      toast({
+        title: "Empty Message",
+        description: "Please enter a message before sending.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!hasRequiredIds) {
+      toast({
+        title: "Missing Information",
+        description: "Mentor and startup information is required to send messages.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     await sendMessage(newMessage);
     setNewMessage('');
@@ -45,6 +66,15 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
       toast({
         title: "Missing Information",
         description: "Please select both date and time for follow-up call.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!hasRequiredIds) {
+      toast({
+        title: "Missing Information",
+        description: "Mentor and startup information is required to schedule follow-ups.",
         variant: "destructive"
       });
       return;
@@ -61,6 +91,22 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
       description: "Follow-up call has been scheduled successfully.",
     });
   };
+
+  if (!hasRequiredIds) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <Card>
+          <CardContent className="p-6 text-center">
+            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-orange-500" />
+            <h3 className="text-lg font-medium mb-2">Setup Required</h3>
+            <p className="text-muted-foreground">
+              Please select a mentor to start chatting. Mentor ID: {mentorId || 'missing'}, Startup ID: {startupId || 'missing'}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
