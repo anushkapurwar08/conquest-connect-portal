@@ -11,17 +11,17 @@ import { useAuth } from '@/hooks/useAuth';
 
 interface WaitlistItem {
   id: string;
-  mentor_id: string;
-  startup_id: string;
+  mentor_id: string | null;
+  startup_id: string | null;
   status: 'pending' | 'contacted' | 'scheduled' | 'cancelled';
-  notes?: string;
-  priority: number;
+  notes?: string | null;
+  priority: number | null;
   added_at: string;
-  contacted_at?: string;
+  contacted_at?: string | null;
   mentor_profile?: {
     username: string;
-    first_name?: string;
-    last_name?: string;
+    first_name?: string | null;
+    last_name?: string | null;
   };
 }
 
@@ -62,9 +62,16 @@ const WaitlistManager: React.FC<WaitlistManagerProps> = ({ userRole }) => {
             .eq('startup_id', startup.id);
 
           if (waitlist) {
-            const formattedWaitlist = waitlist.map(item => ({
-              ...item,
-              mentor_profile: (item as any).mentors.profiles
+            const formattedWaitlist: WaitlistItem[] = waitlist.map(item => ({
+              id: item.id,
+              mentor_id: item.mentor_id,
+              startup_id: item.startup_id,
+              status: (item.status as 'pending' | 'contacted' | 'scheduled' | 'cancelled') || 'pending',
+              notes: item.notes,
+              priority: item.priority,
+              added_at: item.added_at || new Date().toISOString(),
+              contacted_at: item.contacted_at,
+              mentor_profile: (item as any).mentors?.profiles
             }));
             setWaitlistItems(formattedWaitlist);
           }
@@ -84,9 +91,16 @@ const WaitlistManager: React.FC<WaitlistManagerProps> = ({ userRole }) => {
           `);
 
         if (waitlist) {
-          const formattedWaitlist = waitlist.map(item => ({
-            ...item,
-            mentor_profile: (item as any).mentors.profiles
+          const formattedWaitlist: WaitlistItem[] = waitlist.map(item => ({
+            id: item.id,
+            mentor_id: item.mentor_id,
+            startup_id: item.startup_id,
+            status: (item.status as 'pending' | 'contacted' | 'scheduled' | 'cancelled') || 'pending',
+            notes: item.notes,
+            priority: item.priority,
+            added_at: item.added_at || new Date().toISOString(),
+            contacted_at: item.contacted_at,
+            mentor_profile: (item as any).mentors?.profiles
           }));
           setWaitlistItems(formattedWaitlist);
         }
@@ -213,7 +227,7 @@ const WaitlistManager: React.FC<WaitlistManagerProps> = ({ userRole }) => {
 
   // Team view - group by mentor and show counts
   const mentorCounts = waitlistItems.reduce((acc, item) => {
-    const mentorId = item.mentor_id;
+    const mentorId = item.mentor_id || 'unknown';
     if (!acc[mentorId]) {
       acc[mentorId] = {
         mentor_profile: item.mentor_profile,
