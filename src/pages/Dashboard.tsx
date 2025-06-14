@@ -8,7 +8,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { LogOut } from 'lucide-react';
 import StartupDashboard from '@/components/dashboard/StartupDashboard';
 import MentorDashboard from '@/components/dashboard/MentorDashboard';
-import TeamDashboard from '@/components/dashboard/TeamDashboard';
 import { useAuth } from '@/hooks/useAuth';
 
 const Dashboard = () => {
@@ -102,7 +101,11 @@ const Dashboard = () => {
       <main className="container mx-auto px-4 py-6">
         {profile.role === 'startup' && <StartupDashboard />}
         {profile.role === 'mentor' && <MentorDashboard />}
-        {profile.role === 'team' && <TeamDashboard />}
+        {profile.role === 'team' && (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">Team dashboard has been removed. Please contact support if you need access.</p>
+          </div>
+        )}
       </main>
     </div>
   );

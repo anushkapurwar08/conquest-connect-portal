@@ -12,6 +12,7 @@ import SimpleChatFollowUp from './SimpleChatFollowUp';
 import SharedMentorNotes from './SharedMentorNotes';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 interface Startup {
   id: string;
@@ -114,12 +115,13 @@ const MentorDashboard = () => {
         setAllStartups(formattedStartups);
       }
 
-      // Fetch upcoming sessions
+      // Fetch upcoming sessions with real-time data
       const { data: upcomingData } = await supabase
         .from('appointments')
         .select(`
           scheduled_at,
           title,
+          status,
           startups!inner(startup_name)
         `)
         .eq('mentor_id', mentor.id)
@@ -180,10 +182,74 @@ const MentorDashboard = () => {
     }
   };
 
-  const handleScheduleCall = (date: Date, time: string, startup: string) => {
-    console.log(`Scheduling call with ${startup} on ${date.toDateString()} at ${time}`);
-    // Refresh data to show updated upcoming calls
-    fetchMentorData();
+  const handleScheduleCall = async (date: Date, time: string, startup: string) => {
+    try {
+      console.log(`Scheduling call with ${startup} on ${date.toDateString()} at ${time}`);
+      
+      // Get mentor info
+      const { data: mentor } = await supabase
+        .from('mentors')
+        .select('id')
+        .eq('profile_id', profile?.id)
+        .single();
+
+      if (!mentor) {
+        toast({
+          title: "Error",
+          description: "Mentor profile not found.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Find the startup
+      const { data: startupData } = await supabase
+        .from('startups')
+        .select('id')
+        .eq('startup_name', startup)
+        .single();
+
+      if (!startupData) {
+        toast({
+          title: "Error",
+          description: "Startup not found.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Create appointment with proper date/time
+      const scheduledDateTime = new Date(date);
+      const [hours, minutes] = time.split(':');
+      scheduledDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+      const { error } = await supabase
+        .from('appointments')
+        .insert({
+          mentor_id: mentor.id,
+          startup_id: startupData.id,
+          scheduled_at: scheduledDateTime.toISOString(),
+          title: 'Mentoring Session',
+          status: 'scheduled'
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Call Scheduled",
+        description: `Your call with ${startup} has been scheduled successfully.`,
+      });
+
+      // Refresh data to show updated upcoming calls
+      fetchMentorData();
+    } catch (error) {
+      console.error('Error scheduling call:', error);
+      toast({
+        title: "Error",
+        description: "Failed to schedule the call. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   if (selectedStartup) {
@@ -219,7 +285,7 @@ const MentorDashboard = () => {
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
-          <TabsTrigger value="startups">My Startups</TabsTrigger>
+          <TabsTrigger value="startups">Startups</TabsTrigger>
           <TabsTrigger value="notes">Shared Notes</TabsTrigger>
           <TabsTrigger value="follow-up">Chat</TabsTrigger>
         </TabsList>
@@ -324,7 +390,9 @@ const MentorDashboard = () => {
 
         <TabsContent value="startups" className="space-y-6">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold">My Assigned Startups</h3>
+            <h3 className="text-lg font-semibold">
+              {showCohort ? 'All Cohort Startups' : 'My Assigned Startups'}
+            </h3>
             <Button 
               variant="outline" 
               onClick={() => setShowCohort(!showCohort)}

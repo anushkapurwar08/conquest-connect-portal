@@ -309,6 +309,7 @@ export type Database = {
           mentor_id: string | null
           recurrence_pattern: string | null
           start_time: string
+          status: string | null
         }
         Insert: {
           created_at?: string | null
@@ -319,6 +320,7 @@ export type Database = {
           mentor_id?: string | null
           recurrence_pattern?: string | null
           start_time: string
+          status?: string | null
         }
         Update: {
           created_at?: string | null
@@ -329,6 +331,7 @@ export type Database = {
           mentor_id?: string | null
           recurrence_pattern?: string | null
           start_time?: string
+          status?: string | null
         }
         Relationships: [
           {
