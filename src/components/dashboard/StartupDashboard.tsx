@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,63 +10,157 @@ import MentorProfile from '@/components/mentor/MentorProfile';
 import WaitlistManager from '@/components/waitlist/WaitlistManager';
 import CallScheduler from '@/components/scheduling/CallScheduler';
 import PostCallFollowUp from './PostCallFollowUp';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+
+interface Mentor {
+  id: string;
+  name: string;
+  title: string;
+  expertise: string[];
+  company: string;
+}
+
+interface Appointment {
+  id: string;
+  mentor_name: string;
+  scheduled_at: string;
+  title: string;
+}
 
 const StartupDashboard = () => {
   const [selectedMentor, setSelectedMentor] = useState<string | null>(null);
   const [showWaitlist, setShowWaitlist] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [mentors, setMentors] = useState<Mentor[]>([]);
+  const [upcomingCalls, setUpcomingCalls] = useState<Appointment[]>([]);
+  const [stats, setStats] = useState({
+    totalCalls: 0,
+    mentorsContacted: 0,
+    waitlistLength: 0,
+    resourcesAccessed: 28
+  });
+  const [loading, setLoading] = useState(true);
+  const { profile } = useAuth();
 
-  const mockMentors = [
-    {
-      id: '1',
-      name: 'John Smith',
-      title: 'Partner at TechVentures',
-      expertise: ['Product Strategy', 'Go-to-Market'],
-    },
-    {
-      id: '2',
-      name: 'Sarah Johnson',
-      title: 'CEO of InnovateLab',
-      expertise: ['Fundraising', 'Team Building'],
-    },
-    {
-      id: '3',
-      name: 'Mike Davis',
-      title: 'CTO of NextGen Solutions',
-      expertise: ['Technology', 'Scaling'],
-    },
-  ];
+  useEffect(() => {
+    if (profile) {
+      fetchDashboardData();
+    }
+  }, [profile]);
 
-  const recentActivity = [
-    {
-      id: '1',
-      description: 'Scheduled a call with John Smith',
-      time: '2 hours ago',
-    },
-    {
-      id: '2',
-      description: 'Added Sarah Johnson to waitlist',
-      time: '5 hours ago',
-    },
-    {
-      id: '3',
-      description: 'Completed call with Mike Davis',
-      time: '1 day ago',
-    },
-  ];
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
 
-  const upcomingCalls = [
-    {
-      id: '1',
-      mentor: 'John Smith',
-      time: 'January 15, 2024, 2:00 PM',
-    },
-    {
-      id: '2',
-      mentor: 'Sarah Johnson',
-      time: 'January 18, 2024, 10:00 AM',
-    },
-  ];
+      // Fetch startup info
+      const { data: startup } = await supabase
+        .from('startups')
+        .select('id')
+        .eq('profile_id', profile?.id)
+        .single();
+
+      if (!startup) {
+        setLoading(false);
+        return;
+      }
+
+      // Fetch available mentors
+      const { data: mentorsData } = await supabase
+        .from('mentors')
+        .select(`
+          id,
+          profiles!inner(
+            username,
+            first_name,
+            last_name,
+            title,
+            company,
+            expertise
+          )
+        `);
+
+      if (mentorsData) {
+        const formattedMentors: Mentor[] = mentorsData.map((mentor: any) => ({
+          id: mentor.id,
+          name: mentor.profiles.first_name && mentor.profiles.last_name 
+            ? `${mentor.profiles.first_name} ${mentor.profiles.last_name}`
+            : mentor.profiles.username,
+          title: mentor.profiles.title || 'Mentor',
+          company: mentor.profiles.company || '',
+          expertise: mentor.profiles.expertise || []
+        }));
+        setMentors(formattedMentors);
+      }
+
+      // Fetch upcoming appointments
+      const { data: appointmentsData } = await supabase
+        .from('appointments')
+        .select(`
+          id,
+          title,
+          scheduled_at,
+          mentors!inner(
+            profiles!inner(
+              first_name,
+              last_name,
+              username
+            )
+          )
+        `)
+        .eq('startup_id', startup.id)
+        .eq('status', 'scheduled')
+        .gte('scheduled_at', new Date().toISOString())
+        .order('scheduled_at', { ascending: true });
+
+      if (appointmentsData) {
+        const formattedAppointments: Appointment[] = appointmentsData.map((apt: any) => ({
+          id: apt.id,
+          title: apt.title,
+          scheduled_at: apt.scheduled_at,
+          mentor_name: apt.mentors?.profiles?.first_name && apt.mentors?.profiles?.last_name
+            ? `${apt.mentors.profiles.first_name} ${apt.mentors.profiles.last_name}`
+            : apt.mentors?.profiles?.username || 'Unknown Mentor'
+        }));
+        setUpcomingCalls(formattedAppointments);
+      }
+
+      // Fetch stats
+      const [
+        { count: totalCalls },
+        { count: waitlistLength }
+      ] = await Promise.all([
+        supabase
+          .from('appointments')
+          .select('*', { count: 'exact', head: true })
+          .eq('startup_id', startup.id),
+        supabase
+          .from('waitlist')
+          .select('*', { count: 'exact', head: true })
+          .eq('startup_id', startup.id)
+      ]);
+
+      // Get unique mentors contacted
+      const { data: uniqueMentors } = await supabase
+        .from('appointments')
+        .select('mentor_id')
+        .eq('startup_id', startup.id);
+
+      const uniqueMentorIds = new Set(uniqueMentors?.map(apt => apt.mentor_id) || []);
+
+      setStats({
+        totalCalls: totalCalls || 0,
+        mentorsContacted: uniqueMentorIds.size,
+        waitlistLength: waitlistLength || 0,
+        resourcesAccessed: 28
+      });
+
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleMentorClick = (mentorId: string) => {
     setSelectedMentor(mentorId);
@@ -95,6 +190,14 @@ const StartupDashboard = () => {
       <WaitlistManager 
         userRole="startup"
       />
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+      </div>
     );
   }
 
@@ -132,8 +235,8 @@ const StartupDashboard = () => {
                 <Phone className="h-4 w-4 text-orange-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">12</div>
-                <p className="text-xs text-muted-foreground">+2 from last month</p>
+                <div className="text-2xl font-bold">{stats.totalCalls}</div>
+                <p className="text-xs text-muted-foreground">Completed sessions</p>
               </CardContent>
             </Card>
 
@@ -143,8 +246,8 @@ const StartupDashboard = () => {
                 <Users className="h-4 w-4 text-orange-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">5</div>
-                <p className="text-xs text-muted-foreground">+1 from last month</p>
+                <div className="text-2xl font-bold">{stats.mentorsContacted}</div>
+                <p className="text-xs text-muted-foreground">Unique mentors</p>
               </CardContent>
             </Card>
 
@@ -154,8 +257,8 @@ const StartupDashboard = () => {
                 <Clock className="h-4 w-4 text-orange-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">3</div>
-                <p className="text-xs text-muted-foreground">-1 from last month</p>
+                <div className="text-2xl font-bold">{stats.waitlistLength}</div>
+                <p className="text-xs text-muted-foreground">Pending requests</p>
               </CardContent>
             </Card>
 
@@ -165,33 +268,14 @@ const StartupDashboard = () => {
                 <BookOpen className="h-4 w-4 text-orange-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">28</div>
-                <p className="text-xs text-muted-foreground">+5 from last month</p>
+                <div className="text-2xl font-bold">{stats.resourcesAccessed}</div>
+                <p className="text-xs text-muted-foreground">Learning materials</p>
               </CardContent>
             </Card>
           </div>
 
-          {/* Recent Activity and Upcoming Calls */}
+          {/* Upcoming Calls */}
           <div className="grid gap-6 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2 text-orange-600">
-                  <MessageSquare className="h-5 w-5" />
-                  <span>Recent Activity</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="list-none space-y-3">
-                  {recentActivity.map((activity) => (
-                    <li key={activity.id} className="border-b pb-2 last:border-none">
-                      <div className="text-sm font-medium">{activity.description}</div>
-                      <div className="text-xs text-muted-foreground">{activity.time}</div>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-            
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2 text-orange-600">
@@ -200,14 +284,61 @@ const StartupDashboard = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <ul className="list-none space-y-3">
-                  {upcomingCalls.map((call) => (
-                    <li key={call.id} className="border-b pb-2 last:border-none">
-                      <div className="text-sm font-medium">Call with {call.mentor}</div>
-                      <div className="text-xs text-muted-foreground">{call.time}</div>
-                    </li>
-                  ))}
-                </ul>
+                {upcomingCalls.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">
+                    No upcoming calls scheduled
+                  </p>
+                ) : (
+                  <ul className="list-none space-y-3">
+                    {upcomingCalls.slice(0, 3).map((call) => (
+                      <li key={call.id} className="border-b pb-2 last:border-none">
+                        <div className="text-sm font-medium">{call.title}</div>
+                        <div className="text-xs text-muted-foreground">
+                          with {call.mentor_name}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(call.scheduled_at).toLocaleDateString()} at{' '}
+                          {new Date(call.scheduled_at).toLocaleTimeString()}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2 text-orange-600">
+                  <MessageSquare className="h-5 w-5" />
+                  <span>Quick Actions</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={() => setActiveTab('mentors')}
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  Browse Mentors
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={() => setActiveTab('schedule')}
+                >
+                  <Calendar className="mr-2 h-4 w-4" />
+                  Schedule a Call
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={() => setShowWaitlist(true)}
+                >
+                  <Clock className="mr-2 h-4 w-4" />
+                  Manage Waitlist
+                </Button>
               </CardContent>
             </Card>
           </div>
@@ -222,25 +353,29 @@ const StartupDashboard = () => {
 
         <TabsContent value="mentors" className="space-y-6">
           <div className="grid gap-4 md:grid-cols-3">
-            {mockMentors.map((mentor) => (
+            {mentors.map((mentor) => (
               <Card key={mentor.id} className="hover:shadow-md transition-shadow duration-200">
                 <CardHeader>
                   <CardTitle className="text-lg font-semibold">{mentor.name}</CardTitle>
-                  <CardDescription>{mentor.title}</CardDescription>
+                  <CardDescription>{mentor.title} {mentor.company && `at ${mentor.company}`}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ul className="list-disc pl-4 space-y-1 text-sm">
-                    {mentor.expertise.map((skill, index) => (
-                      <li key={index}>{skill}</li>
-                    ))}
-                  </ul>
-                  <Button 
-                    variant="outline" 
-                    className="mt-4 w-full border-orange-500 text-orange-600 hover:bg-orange-50"
-                    onClick={() => handleMentorClick(mentor.id)}
-                  >
-                    View Profile
-                  </Button>
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-1">
+                      {mentor.expertise.slice(0, 3).map((skill, index) => (
+                        <Badge key={index} variant="secondary" className="text-xs">
+                          {skill}
+                        </Badge>
+                      ))}
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      className="mt-4 w-full border-orange-500 text-orange-600 hover:bg-orange-50"
+                      onClick={() => handleMentorClick(mentor.id)}
+                    >
+                      View Profile
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}

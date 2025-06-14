@@ -27,10 +27,48 @@ export const useAuth = () => {
     if (savedUser) {
       const userData = JSON.parse(savedUser);
       setUser(userData);
-      setProfile(userData);
+      fetchFullProfile(userData.id);
+    } else {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
+
+  const fetchFullProfile = async (userId: string) => {
+    try {
+      const { data: profileData, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return;
+      }
+
+      if (profileData) {
+        const fullProfile: Profile = {
+          id: profileData.id,
+          username: profileData.username,
+          role: profileData.role,
+          first_name: profileData.first_name,
+          last_name: profileData.last_name,
+          title: profileData.title,
+          company: profileData.company,
+          expertise: profileData.expertise,
+          bio: profileData.bio,
+          profile_image_url: profileData.profile_image_url
+        };
+
+        setProfile(fullProfile);
+        setUser(fullProfile);
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const signInWithCredentials = async (username: string, password: string) => {
     try {
@@ -52,30 +90,21 @@ export const useAuth = () => {
         throw new Error('Invalid username or password');
       }
 
-      console.log('Credentials verified, creating user session');
+      console.log('Credentials verified, fetching full profile');
 
-      // Create user object
-      const userData = {
+      // Fetch full profile data
+      await fetchFullProfile(credentials.id);
+
+      // Save basic user data to localStorage for persistence
+      const basicUserData = {
         id: credentials.id,
         username: credentials.username,
-        role: credentials.role,
-        startup_name: credentials.startup_name,
-        first_name: null,
-        last_name: null,
-        title: null,
-        company: null,
-        expertise: null,
-        bio: null,
-        profile_image_url: null
+        role: credentials.role
       };
 
-      // Save to localStorage for persistence
-      localStorage.setItem('conquest_user', JSON.stringify(userData));
+      localStorage.setItem('conquest_user', JSON.stringify(basicUserData));
 
-      setUser(userData);
-      setProfile(userData);
-
-      return { user: userData };
+      return { user: basicUserData };
     } catch (error) {
       console.error('Sign in error:', error);
       throw error;
