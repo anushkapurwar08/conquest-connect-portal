@@ -2,6 +2,10 @@
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import type { Database } from '@/integrations/supabase/types';
+
+type UserRole = Database['public']['Enums']['user_role'];
+type MentorType = Database['public']['Enums']['mentor_type'];
 
 export const useSampleData = () => {
   const { profile } = useAuth();
@@ -27,13 +31,13 @@ export const useSampleData = () => {
 
       console.log('Creating sample mentors...');
 
-      // Create sample profiles first
+      // Create sample profiles first with proper types
       const sampleProfiles = [
         {
           username: 'sarah_founder',
           first_name: 'Sarah',
           last_name: 'Johnson',
-          role: 'mentor',
+          role: 'mentor' as UserRole,
           title: 'Former CEO at TechCorp',
           expertise: ['Product Strategy', 'Go-to-Market', 'Fundraising'],
           bio: 'Serial entrepreneur with 3 successful exits. Passionate about helping early-stage startups scale.'
@@ -42,7 +46,7 @@ export const useSampleData = () => {
           username: 'michael_expert',
           first_name: 'Michael',
           last_name: 'Chen',
-          role: 'mentor',
+          role: 'mentor' as UserRole,
           title: 'CTO at StartupX',
           expertise: ['Engineering', 'Team Building', 'Architecture'],
           bio: 'Technology leader with 15+ years building scalable systems.'
@@ -51,7 +55,7 @@ export const useSampleData = () => {
           username: 'emily_coach',
           first_name: 'Emily',
           last_name: 'Rodriguez',
-          role: 'mentor',
+          role: 'mentor' as UserRole,
           title: 'Executive Coach',
           expertise: ['Leadership', 'Personal Development', 'Communication'],
           bio: 'Certified executive coach helping founders develop leadership skills.'
@@ -68,23 +72,23 @@ export const useSampleData = () => {
         return;
       }
 
-      // Create mentor records
+      // Create mentor records with proper types
       const mentorRecords = [
         {
           profile_id: profiles[0].id,
-          mentor_type: 'founder_mentor',
+          mentor_type: 'founder_mentor' as MentorType,
           years_experience: 12,
           hourly_rate: 300
         },
         {
           profile_id: profiles[1].id,
-          mentor_type: 'expert',
+          mentor_type: 'expert' as MentorType,
           years_experience: 8,
           hourly_rate: 200
         },
         {
           profile_id: profiles[2].id,
-          mentor_type: 'coach',
+          mentor_type: 'coach' as MentorType,
           years_experience: 10,
           hourly_rate: 250
         }
