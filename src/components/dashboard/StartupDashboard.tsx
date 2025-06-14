@@ -144,11 +144,11 @@ const StartupDashboard = () => {
         </TabsList>
 
         <TabsContent value="mentors" className="mt-6 space-y-6">
+          {/* Available Slots Section - Direct display */}
+          <MentorSlotBooking onSlotBooked={handleSlotBooked} />
+          
           {/* Mentor Chat Section */}
           <StartupMentorChat />
-          
-          {/* Available Slots Section */}
-          <MentorSlotBooking onSlotBooked={handleSlotBooked} />
         </TabsContent>
 
         <TabsContent value="sessions" className="mt-6">

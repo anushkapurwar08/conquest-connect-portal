@@ -11,10 +11,12 @@ import { toast } from '@/hooks/use-toast';
 
 interface PodMember {
   id: string;
-  name: string;
+  startup_name: string;
   industry?: string;
   stage?: string;
   description?: string;
+  profile_id: string;
+  founder_name?: string;
 }
 
 interface PodCall {
@@ -31,6 +33,7 @@ const PodView: React.FC = () => {
   const [podCalls, setPodCalls] = useState<PodCall[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'pod' | 'cohort'>('pod');
+  const [currentStartup, setCurrentStartup] = useState<PodMember | null>(null);
 
   useEffect(() => {
     if (profile?.id) {
@@ -42,71 +45,133 @@ const PodView: React.FC = () => {
     try {
       setLoading(true);
 
-      // Get current startup's pod (for now, we'll simulate pod membership)
-      // In a real app, you'd have a pods table that groups startups
-      const { data: currentStartup } = await supabase
+      // Get current startup
+      const { data: startup } = await supabase
         .from('startups')
-        .select('id, startup_name, industry, stage, description')
+        .select(`
+          id,
+          startup_name,
+          industry,
+          stage,
+          description,
+          profile_id
+        `)
         .eq('profile_id', profile?.id)
         .single();
 
-      if (!currentStartup) {
+      if (!startup) {
         setLoading(false);
         return;
       }
 
-      // Simulate pod members (startups in the same industry or stage)
+      setCurrentStartup(startup);
+
+      // Get pod members (startups in the same industry and stage)
       const { data: podStartups } = await supabase
         .from('startups')
-        .select('id, startup_name, industry, stage, description')
-        .or(`industry.eq.${currentStartup.industry},stage.eq.${currentStartup.stage}`)
-        .neq('id', currentStartup.id)
-        .limit(5);
+        .select(`
+          id,
+          startup_name,
+          industry,
+          stage,
+          description,
+          profile_id,
+          profiles!inner(
+            first_name,
+            last_name,
+            username
+          )
+        `)
+        .eq('industry', startup.industry)
+        .eq('stage', startup.stage)
+        .neq('id', startup.id);
 
       if (podStartups) {
-        const formattedPodMembers = podStartups.map(startup => ({
-          id: startup.id,
-          name: startup.startup_name,
-          industry: startup.industry,
-          stage: startup.stage,
-          description: startup.description || 'No description available'
+        const formattedPodMembers = podStartups.map((s: any) => ({
+          id: s.id,
+          startup_name: s.startup_name,
+          industry: s.industry,
+          stage: s.stage,
+          description: s.description || 'No description available',
+          profile_id: s.profile_id,
+          founder_name: s.profiles.first_name && s.profiles.last_name
+            ? `${s.profiles.first_name} ${s.profiles.last_name}`
+            : s.profiles.username
         }));
         setPodMembers(formattedPodMembers);
       }
 
-      // Fetch all cohort startups
+      // Get all cohort startups
       const { data: allStartups } = await supabase
         .from('startups')
-        .select('id, startup_name, industry, stage, description')
-        .neq('id', currentStartup.id);
+        .select(`
+          id,
+          startup_name,
+          industry,
+          stage,
+          description,
+          profile_id,
+          profiles!inner(
+            first_name,
+            last_name,
+            username
+          )
+        `)
+        .neq('id', startup.id);
 
       if (allStartups) {
-        const formattedCohortMembers = allStartups.map(startup => ({
-          id: startup.id,
-          name: startup.startup_name,
-          industry: startup.industry,
-          stage: startup.stage,
-          description: startup.description || 'No description available'
+        const formattedCohortMembers = allStartups.map((s: any) => ({
+          id: s.id,
+          startup_name: s.startup_name,
+          industry: s.industry,
+          stage: s.stage,
+          description: s.description || 'No description available',
+          profile_id: s.profile_id,
+          founder_name: s.profiles.first_name && s.profiles.last_name
+            ? `${s.profiles.first_name} ${s.profiles.last_name}`
+            : s.profiles.username
         }));
         setCohortStartups(formattedCohortMembers);
       }
 
-      // Fetch weekly pod calls (simulate weekly recurring calls)
-      const now = new Date();
-      const upcomingCalls = [];
-      for (let i = 0; i < 4; i++) {
-        const callDate = new Date(now);
-        callDate.setDate(now.getDate() + (i * 7) + (7 - now.getDay())); // Next Monday
-        callDate.setHours(14, 0, 0, 0); // 2 PM
+      // Fetch actual pod calls from appointments table (for pod members only)
+      if (podStartups && podStartups.length > 0) {
+        const podStartupIds = podStartups.map((s: any) => s.id);
+        const { data: calls } = await supabase
+          .from('appointments')
+          .select(`
+            id,
+            title,
+            scheduled_at,
+            status
+          `)
+          .in('startup_id', [...podStartupIds, startup.id])
+          .eq('title', 'Pod Call')
+          .gte('scheduled_at', new Date().toISOString())
+          .order('scheduled_at', { ascending: true })
+          .limit(5);
 
-        upcomingCalls.push({
-          id: `pod-call-${i}`,
-          title: 'Weekly Pod Check-in',
-          scheduled_at: callDate.toISOString(),
-          status: 'scheduled'
-        });
+        if (calls) {
+          setPodCalls(calls);
+        } else {
+          // Create sample weekly pod calls if none exist
+          const upcomingCalls = [];
+          const now = new Date();
+          for (let i = 0; i < 4; i++) {
+            const callDate = new Date(now);
+            callDate.setDate(now.getDate() + (i * 7) + (7 - now.getDay())); // Next Monday
+            callDate.setHours(14, 0, 0, 0); // 2 PM
+
+            upcomingCalls.push({
+              id: `pod-call-${i}`,
+              title: 'Weekly Pod Check-in',
+              scheduled_at: callDate.toISOString(),
+              status: 'scheduled'
+            });
+          }
+          setPodCalls(upcomingCalls);
+        }
       }
-      setPodCalls(upcomingCalls);
 
     } catch (error) {
       console.error('Error fetching pod data:', error);
@@ -143,7 +208,7 @@ const PodView: React.FC = () => {
           </h3>
           <p className="text-sm text-muted-foreground">
             {viewMode === 'pod' 
-              ? 'Your pod members and weekly calls' 
+              ? `Startups in the ${currentStartup?.industry} industry at ${currentStartup?.stage} stage`
               : 'All startups in the current cohort'
             }
           </p>
@@ -164,7 +229,7 @@ const PodView: React.FC = () => {
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <Calendar className="h-5 w-5 text-orange-500" />
-              <span>Weekly Pod Calls</span>
+              <span>Pod Calls</span>
             </CardTitle>
             <CardDescription>
               Regular check-ins with your pod members
@@ -217,6 +282,9 @@ const PodView: React.FC = () => {
             <div className="text-center py-8 text-muted-foreground">
               <Building className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No {viewMode === 'pod' ? 'pod members' : 'cohort startups'} found</p>
+              {viewMode === 'pod' && (
+                <p className="text-sm">Pod members are grouped by industry and stage</p>
+              )}
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
@@ -225,12 +293,15 @@ const PodView: React.FC = () => {
                   <div className="flex items-start space-x-3">
                     <Avatar className="h-10 w-10">
                       <AvatarFallback className="bg-orange-100 text-orange-600">
-                        {member.name.charAt(0)}
+                        {member.startup_name.charAt(0)}
                       </AvatarFallback>
                       <AvatarImage src="/placeholder.svg" />
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-sm">{member.name}</h4>
+                      <h4 className="font-medium text-sm">{member.startup_name}</h4>
+                      {member.founder_name && (
+                        <p className="text-xs text-muted-foreground">by {member.founder_name}</p>
+                      )}
                       <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
                         {member.description}
                       </p>

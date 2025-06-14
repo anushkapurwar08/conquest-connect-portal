@@ -55,19 +55,74 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
       return;
     }
 
-    if (!conversationId || !otherProfileId) {
-      console.error('SimpleChatFollowUp: Cannot send message - missing required IDs');
-      toast({
-        title: "Missing Information",
-        description: "Conversation information is required to send messages.",
-        variant: "destructive"
-      });
+    // If we have conversationId, use the existing conversation
+    if (conversationId && otherProfileId) {
+      console.log('SimpleChatFollowUp: Sending message via useProfileChat hook');
+      await sendMessage(newMessage);
+      setNewMessage('');
       return;
     }
 
-    console.log('SimpleChatFollowUp: Sending message via useProfileChat hook');
-    await sendMessage(newMessage);
-    setNewMessage('');
+    // If we have mentorId and startupId, create new conversation
+    if (mentorId && startupId) {
+      console.log('SimpleChatFollowUp: Creating new conversation');
+      try {
+        // Create or get conversation
+        const { data: existingConv } = await supabase
+          .from('conversations')
+          .select('id')
+          .eq('mentor_id', mentorId)
+          .eq('startup_id', startupId)
+          .single();
+
+        let convId = existingConv?.id;
+
+        if (!convId) {
+          const { data: newConv } = await supabase
+            .from('conversations')
+            .insert({
+              mentor_id: mentorId,
+              startup_id: startupId
+            })
+            .select('id')
+            .single();
+          
+          convId = newConv?.id;
+        }
+
+        if (convId) {
+          await supabase
+            .from('messages')
+            .insert({
+              conversation_id: convId,
+              sender_profile_id: profile?.id,
+              content: newMessage,
+              message_type: 'message'
+            });
+
+          setNewMessage('');
+          toast({
+            title: "Message Sent",
+            description: "Your message has been sent successfully.",
+          });
+        }
+      } catch (error) {
+        console.error('Error sending message:', error);
+        toast({
+          title: "Error",
+          description: "Failed to send message. Please try again.",
+          variant: "destructive"
+        });
+      }
+      return;
+    }
+
+    console.error('SimpleChatFollowUp: Cannot send message - missing required IDs');
+    toast({
+      title: "Missing Information",
+      description: "Conversation information is required to send messages.",
+      variant: "destructive"
+    });
   };
 
   const handleScheduleFollowUp = async () => {
@@ -98,7 +153,8 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
     });
   };
 
-  if (!conversationId || !otherProfileId) {
+  // Show error if we don't have the required information
+  if (!conversationId && (!mentorId || !startupId)) {
     console.log('SimpleChatFollowUp: Rendering error state due to missing IDs');
     return (
       <div className="max-w-2xl mx-auto">
@@ -112,7 +168,8 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
             <div className="space-y-2 text-sm text-gray-600">
               <p><strong>Debug Info:</strong></p>
               <p>Conversation ID: {conversationId || 'missing'}</p>
-              <p>Other Profile ID: {otherProfileId || 'missing'}</p>
+              <p>Mentor ID: {mentorId || 'missing'}</p>
+              <p>Startup ID: {startupId || 'missing'}</p>
               <p>Current Profile ID: {profile?.id || 'missing'}</p>
             </div>
           </CardContent>
@@ -121,7 +178,7 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
     );
   }
 
-  if (loading) {
+  if (loading && conversationId) {
     console.log('SimpleChatFollowUp: Rendering loading state');
     return (
       <div className="max-w-2xl mx-auto">
