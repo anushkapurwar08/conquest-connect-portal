@@ -70,7 +70,7 @@ const Dashboard = () => {
                 alt="Conquest Logo" 
                 className="h-8"
               />
-              <h1 className="text-2xl font-bold text-orange-600">Conquest</h1>
+              <h1 className="text-2xl font-bold text-orange-600">21st Edition - 2025</h1>
             </div>
             
             <div className="flex items-center space-x-4">
