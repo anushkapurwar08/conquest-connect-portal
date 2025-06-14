@@ -95,7 +95,17 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
         }
       }
 
-      const { data: slotsData } = await query;
+      const { data: slotsData, error } = await query;
+
+      if (error) {
+        console.error('Error fetching slots:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch available slots. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
 
       if (slotsData) {
         const formattedSlots: TimeSlot[] = slotsData.map((slot: any) => ({
@@ -113,6 +123,11 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
       }
     } catch (error) {
       console.error('Error fetching available slots:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch available slots. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -162,7 +177,12 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
         }
       }
 
-      const { data: callsData } = await query;
+      const { data: callsData, error } = await query;
+
+      if (error) {
+        console.error('Error fetching upcoming calls:', error);
+        return;
+      }
 
       if (callsData) {
         const formattedCalls: UpcomingCall[] = callsData.map((call: any) => {
@@ -198,11 +218,23 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
     }
 
     try {
-      const { data: mentor } = await supabase
+      console.log('Creating time slot for profile:', profile?.id);
+      
+      const { data: mentor, error: mentorError } = await supabase
         .from('mentors')
         .select('id')
         .eq('profile_id', profile?.id)
         .single();
+
+      if (mentorError) {
+        console.error('Mentor fetch error:', mentorError);
+        toast({
+          title: "Error",
+          description: "Could not find mentor profile. Please ensure you're logged in as a mentor.",
+          variant: "destructive"
+        });
+        return;
+      }
 
       if (!mentor) {
         toast({
@@ -213,6 +245,8 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
         return;
       }
 
+      console.log('Found mentor:', mentor.id);
+
       const [hours, minutes] = selectedTime.split(':');
       const startTime = new Date(selectedDate);
       startTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
@@ -220,7 +254,15 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
       const endTime = new Date(startTime);
       endTime.setHours(startTime.getHours() + 1); // 1-hour slots
 
-      const { error } = await supabase
+      console.log('Creating slot with:', {
+        mentor_id: mentor.id,
+        start_time: startTime.toISOString(),
+        end_time: endTime.toISOString(),
+        is_available: true,
+        status: 'available'
+      });
+
+      const { data, error } = await supabase
         .from('time_slots')
         .insert({
           mentor_id: mentor.id,
@@ -228,9 +270,20 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
           end_time: endTime.toISOString(),
           is_available: true,
           status: 'available'
-        });
+        })
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Time slot creation error:', error);
+        toast({
+          title: "Error",
+          description: `Failed to create time slot: ${error.message}`,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      console.log('Time slot created successfully:', data);
 
       toast({
         title: "Time Slot Created",
