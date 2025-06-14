@@ -42,12 +42,14 @@ const MentorChatList: React.FC = () => {
 
   useEffect(() => {
     if (profile?.id) {
+      console.log('MentorChatList: Starting with profile ID:', profile.id);
       fetchMentorId();
     }
   }, [profile?.id]);
 
   useEffect(() => {
     if (mentorId) {
+      console.log('MentorChatList: Mentor ID found, fetching conversations:', mentorId);
       fetchConversations();
     }
   }, [mentorId]);
@@ -59,7 +61,7 @@ const MentorChatList: React.FC = () => {
     }
 
     try {
-      console.log('Fetching mentor ID for profile:', profile.id);
+      console.log('MentorChatList: Fetching mentor ID for profile:', profile.id);
       
       const { data: mentor, error } = await supabase
         .from('mentors')
@@ -68,7 +70,7 @@ const MentorChatList: React.FC = () => {
         .maybeSingle();
 
       if (error) {
-        console.error('Error fetching mentor:', error);
+        console.error('MentorChatList: Error fetching mentor:', error);
         setError(`Database error: ${error.message}`);
         toast({
           title: "Error",
@@ -79,7 +81,7 @@ const MentorChatList: React.FC = () => {
       }
 
       if (!mentor) {
-        console.log('No mentor record found for profile:', profile.id);
+        console.log('MentorChatList: No mentor record found for profile:', profile.id);
         setError('No mentor record found. Please ensure your account is set up as a mentor.');
         toast({
           title: "Mentor Profile Not Found",
@@ -89,11 +91,11 @@ const MentorChatList: React.FC = () => {
         return;
       }
 
-      console.log('Found mentor:', mentor);
+      console.log('MentorChatList: Found mentor:', mentor);
       setMentorId(mentor.id);
       setError(null);
     } catch (error) {
-      console.error('Unexpected error fetching mentor ID:', error);
+      console.error('MentorChatList: Unexpected error fetching mentor ID:', error);
       setError('An unexpected error occurred while loading your mentor profile.');
     }
   };
@@ -103,7 +105,7 @@ const MentorChatList: React.FC = () => {
 
     try {
       setLoading(true);
-      console.log('Fetching conversations for mentor:', mentorId);
+      console.log('MentorChatList: Fetching conversations for mentor:', mentorId);
 
       const { data: conversationsData, error } = await supabase
         .from('conversations')
@@ -133,7 +135,7 @@ const MentorChatList: React.FC = () => {
         .order('updated_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching conversations:', error);
+        console.error('MentorChatList: Error fetching conversations:', error);
         setError(`Failed to load conversations: ${error.message}`);
         toast({
           title: "Error",
@@ -143,7 +145,7 @@ const MentorChatList: React.FC = () => {
         return;
       }
 
-      console.log('Fetched conversations:', conversationsData);
+      console.log('MentorChatList: Fetched conversations:', conversationsData);
 
       // Transform the data to match our interface
       const transformedConversations: Conversation[] = (conversationsData || []).map(conv => ({
@@ -169,11 +171,41 @@ const MentorChatList: React.FC = () => {
       setConversations(transformedConversations);
       setError(null);
     } catch (error) {
-      console.error('Unexpected error fetching conversations:', error);
+      console.error('MentorChatList: Unexpected error fetching conversations:', error);
       setError('An unexpected error occurred while loading conversations.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSelectConversation = (conversation: Conversation) => {
+    console.log('MentorChatList: Selecting conversation:', {
+      conversationId: conversation.id,
+      startupId: conversation.startup_id,
+      mentorId: mentorId
+    });
+    
+    if (!mentorId) {
+      console.error('MentorChatList: Cannot select conversation - mentorId is null');
+      toast({
+        title: "Error",
+        description: "Mentor ID not found. Please refresh the page.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!conversation.startup_id) {
+      console.error('MentorChatList: Cannot select conversation - startup_id is null');
+      toast({
+        title: "Error",
+        description: "Startup ID not found for this conversation.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setSelectedConversation(conversation);
   };
 
   const getStartupDisplayName = (conversation: Conversation) => {
@@ -243,6 +275,11 @@ const MentorChatList: React.FC = () => {
   }
 
   if (selectedConversation && mentorId) {
+    console.log('MentorChatList: Rendering SimpleChatFollowUp with:', {
+      mentorId,
+      startupId: selectedConversation.startup_id
+    });
+
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -293,7 +330,7 @@ const MentorChatList: React.FC = () => {
               <Card 
                 key={conversation.id}
                 className="cursor-pointer transition-all hover:shadow-md"
-                onClick={() => setSelectedConversation(conversation)}
+                onClick={() => handleSelectConversation(conversation)}
               >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">

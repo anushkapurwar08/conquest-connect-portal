@@ -29,15 +29,21 @@ export const useChat = (mentorId?: string, startupId?: string) => {
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [loading, setLoading] = useState(true);
 
+  console.log('useChat: Hook initialized with:', {
+    mentorId: mentorId || 'undefined',
+    startupId: startupId || 'undefined',
+    profile: !!profile
+  });
+
   // Get or create conversation
   const getOrCreateConversation = async () => {
     if (!mentorId || !startupId) {
-      console.log('Missing mentorId or startupId:', { mentorId, startupId });
+      console.log('useChat: Missing mentorId or startupId:', { mentorId, startupId });
       return null;
     }
 
     try {
-      console.log('Attempting to find or create conversation for:', { mentorId, startupId });
+      console.log('useChat: Attempting to find or create conversation for:', { mentorId, startupId });
       
       // First try to find existing conversation
       const { data: existingConversation, error: fetchError } = await supabase
@@ -48,11 +54,11 @@ export const useChat = (mentorId?: string, startupId?: string) => {
         .maybeSingle();
 
       if (existingConversation && !fetchError) {
-        console.log('Found existing conversation:', existingConversation);
+        console.log('useChat: Found existing conversation:', existingConversation);
         return existingConversation;
       }
 
-      console.log('No existing conversation found, creating new one');
+      console.log('useChat: No existing conversation found, creating new one');
       
       // If no conversation exists, create one
       const { data: newConversation, error: createError } = await supabase
@@ -65,14 +71,14 @@ export const useChat = (mentorId?: string, startupId?: string) => {
         .single();
 
       if (createError) {
-        console.error('Error creating conversation:', createError);
+        console.error('useChat: Error creating conversation:', createError);
         return null;
       }
 
-      console.log('Created new conversation:', newConversation);
+      console.log('useChat: Created new conversation:', newConversation);
       return newConversation;
     } catch (error) {
-      console.error('Error getting or creating conversation:', error);
+      console.error('useChat: Error getting or creating conversation:', error);
       return null;
     }
   };
@@ -80,7 +86,7 @@ export const useChat = (mentorId?: string, startupId?: string) => {
   // Load messages for the conversation
   const loadMessages = async (conversationId: string) => {
     try {
-      console.log('Loading messages for conversation:', conversationId);
+      console.log('useChat: Loading messages for conversation:', conversationId);
       
       const { data, error } = await supabase
         .from('messages')
@@ -89,11 +95,11 @@ export const useChat = (mentorId?: string, startupId?: string) => {
         .order('created_at', { ascending: true });
 
       if (error) {
-        console.error('Error loading messages:', error);
+        console.error('useChat: Error loading messages:', error);
         return;
       }
 
-      console.log('Loaded messages:', data);
+      console.log('useChat: Loaded messages:', data?.length || 0, 'messages');
 
       // Cast the data to ensure message_type matches our interface
       const typedMessages: Message[] = (data || []).map(msg => ({
@@ -103,16 +109,21 @@ export const useChat = (mentorId?: string, startupId?: string) => {
 
       setMessages(typedMessages);
     } catch (error) {
-      console.error('Error loading messages:', error);
+      console.error('useChat: Error loading messages:', error);
     }
   };
 
   // Send a message
   const sendMessage = async (content: string, messageType: 'message' | 'follow_up_call' = 'message', followUpDate?: string, followUpTime?: string) => {
-    console.log('Attempting to send message:', { content, messageType, conversation, profile });
+    console.log('useChat: Attempting to send message:', { 
+      content: content.substring(0, 50) + '...', 
+      messageType, 
+      conversation: !!conversation, 
+      profile: !!profile 
+    });
     
     if (!conversation || !profile) {
-      console.error('Missing conversation or profile:', { conversation: !!conversation, profile: !!profile });
+      console.error('useChat: Missing conversation or profile:', { conversation: !!conversation, profile: !!profile });
       toast({
         title: "Error",
         description: "Unable to send message. Please try again.",
@@ -122,12 +133,12 @@ export const useChat = (mentorId?: string, startupId?: string) => {
     }
 
     if (!content.trim()) {
-      console.log('Empty message content, not sending');
+      console.log('useChat: Empty message content, not sending');
       return;
     }
 
     try {
-      console.log('Inserting message into database...');
+      console.log('useChat: Inserting message into database...');
       
       const { data, error } = await supabase
         .from('messages')
@@ -143,7 +154,7 @@ export const useChat = (mentorId?: string, startupId?: string) => {
         .single();
 
       if (error) {
-        console.error('Error sending message:', error);
+        console.error('useChat: Error sending message:', error);
         toast({
           title: "Error",
           description: "Failed to send message. Please try again.",
@@ -152,7 +163,7 @@ export const useChat = (mentorId?: string, startupId?: string) => {
         return;
       }
 
-      console.log('Message sent successfully:', data);
+      console.log('useChat: Message sent successfully:', data);
 
       // Cast the response data to match our Message interface
       const typedMessage: Message = {
@@ -168,7 +179,7 @@ export const useChat = (mentorId?: string, startupId?: string) => {
         description: "Your message has been sent successfully.",
       });
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('useChat: Error sending message:', error);
       toast({
         title: "Error",
         description: "Failed to send message. Please try again.",
@@ -180,10 +191,10 @@ export const useChat = (mentorId?: string, startupId?: string) => {
   // Initialize conversation and load messages
   useEffect(() => {
     const initializeChat = async () => {
-      console.log('Initializing chat with:', { mentorId, startupId, profile });
+      console.log('useChat: Initializing chat with:', { mentorId, startupId, profile: !!profile });
       
       if (!mentorId || !startupId) {
-        console.log('Missing mentorId or startupId, not initializing chat');
+        console.log('useChat: Missing mentorId or startupId, not initializing chat');
         setLoading(false);
         return;
       }
@@ -192,10 +203,11 @@ export const useChat = (mentorId?: string, startupId?: string) => {
       const conv = await getOrCreateConversation();
       
       if (conv) {
+        console.log('useChat: Setting conversation:', conv);
         setConversation(conv);
         await loadMessages(conv.id);
       } else {
-        console.error('Failed to get or create conversation');
+        console.error('useChat: Failed to get or create conversation');
       }
       
       setLoading(false);
@@ -208,7 +220,7 @@ export const useChat = (mentorId?: string, startupId?: string) => {
   useEffect(() => {
     if (!conversation) return;
 
-    console.log('Setting up real-time subscription for conversation:', conversation.id);
+    console.log('useChat: Setting up real-time subscription for conversation:', conversation.id);
 
     const channel = supabase
       .channel(`messages:${conversation.id}`)
@@ -221,7 +233,7 @@ export const useChat = (mentorId?: string, startupId?: string) => {
           filter: `conversation_id=eq.${conversation.id}`
         },
         (payload) => {
-          console.log('Received real-time message:', payload);
+          console.log('useChat: Received real-time message:', payload);
           const newMessage = payload.new as any;
           // Only add the message if it's not from the current user to avoid duplicates
           if (newMessage.sender_profile_id !== profile?.id) {
@@ -236,7 +248,7 @@ export const useChat = (mentorId?: string, startupId?: string) => {
       .subscribe();
 
     return () => {
-      console.log('Cleaning up real-time subscription');
+      console.log('useChat: Cleaning up real-time subscription');
       supabase.removeChannel(channel);
     };
   }, [conversation, profile?.id]);
