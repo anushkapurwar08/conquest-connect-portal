@@ -217,35 +217,85 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
       return;
     }
 
+    if (!profile?.id) {
+      toast({
+        title: "Error",
+        description: "User not authenticated. Please log in again.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       console.log('Creating time slot for profile:', profile?.id);
       
+      // First, check if user is authenticated and has a mentor profile
       const { data: mentor, error: mentorError } = await supabase
         .from('mentors')
         .select('id')
-        .eq('profile_id', profile?.id)
-        .single();
+        .eq('profile_id', profile.id)
+        .maybeSingle();
 
       if (mentorError) {
         console.error('Mentor fetch error:', mentorError);
         toast({
           title: "Error",
-          description: "Could not find mentor profile. Please ensure you're logged in as a mentor.",
+          description: "Could not verify mentor profile. Please try again.",
           variant: "destructive"
         });
         return;
       }
 
       if (!mentor) {
+        // Create a mentor profile if it doesn't exist
+        console.log('Creating mentor profile for user:', profile.id);
+        const { data: newMentor, error: createMentorError } = await supabase
+          .from('mentors')
+          .insert({
+            profile_id: profile.id
+          })
+          .select('id')
+          .single();
+
+        if (createMentorError) {
+          console.error('Error creating mentor profile:', createMentorError);
+          toast({
+            title: "Error",
+            description: "Could not create mentor profile. Please contact support.",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        if (!newMentor) {
+          toast({
+            title: "Error",
+            description: "Failed to create mentor profile.",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        console.log('Created new mentor profile:', newMentor.id);
+      }
+
+      // Get the mentor ID (either existing or newly created)
+      const mentorId = mentor?.id || (await supabase
+        .from('mentors')
+        .select('id')
+        .eq('profile_id', profile.id)
+        .single()).data?.id;
+
+      if (!mentorId) {
         toast({
           title: "Error",
-          description: "Mentor profile not found.",
+          description: "Could not find or create mentor profile.",
           variant: "destructive"
         });
         return;
       }
 
-      console.log('Found mentor:', mentor.id);
+      console.log('Using mentor ID:', mentorId);
 
       const [hours, minutes] = selectedTime.split(':');
       const startTime = new Date(selectedDate);
@@ -255,7 +305,7 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
       endTime.setHours(startTime.getHours() + 1); // 1-hour slots
 
       console.log('Creating slot with:', {
-        mentor_id: mentor.id,
+        mentor_id: mentorId,
         start_time: startTime.toISOString(),
         end_time: endTime.toISOString(),
         is_available: true,
@@ -265,7 +315,7 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
       const { data, error } = await supabase
         .from('time_slots')
         .insert({
-          mentor_id: mentor.id,
+          mentor_id: mentorId,
           start_time: startTime.toISOString(),
           end_time: endTime.toISOString(),
           is_available: true,
