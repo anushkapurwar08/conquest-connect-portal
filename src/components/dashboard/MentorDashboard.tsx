@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,8 +7,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Calendar, Users, MessageSquare, Clock, BookOpen, Phone, Building } from 'lucide-react';
 import StartupProfile from '@/components/startup/StartupProfile';
 import CallScheduler from '@/components/scheduling/CallScheduler';
-import MentorChatList from './MentorChatList';
 import SharedMentorNotes from './SharedMentorNotes';
+import ChatInterface from '@/components/chat/ChatInterface';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -217,7 +216,7 @@ const MentorDashboard = () => {
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
           <TabsTrigger value="startups">Startups</TabsTrigger>
           <TabsTrigger value="notes">Shared Notes</TabsTrigger>
-          <TabsTrigger value="follow-up">Chat</TabsTrigger>
+          <TabsTrigger value="chat">Chat</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -380,8 +379,8 @@ const MentorDashboard = () => {
           <SharedMentorNotes />
         </TabsContent>
 
-        <TabsContent value="follow-up">
-          <MentorChatList />
+        <TabsContent value="chat">
+          <ChatInterface />
         </TabsContent>
       </Tabs>
     </div>

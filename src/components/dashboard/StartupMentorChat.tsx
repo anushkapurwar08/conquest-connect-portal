@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { AlertCircle } from 'lucide-react';
 import MentorCategoryTabs from '@/components/mentor/MentorCategoryTabs';
-import SimpleChatFollowUp from './SimpleChatFollowUp';
+import ChatInterface from '@/components/chat/ChatInterface';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -30,7 +30,7 @@ const StartupMentorChat: React.FC = () => {
     setLoading(true);
     
     try {
-      // Check if conversation exists between this startup and mentor
+      // Check if conversation exists between these profiles
       const { data: existingConversation, error: convError } = await supabase
         .from('conversations')
         .select('id')
@@ -132,10 +132,7 @@ const StartupMentorChat: React.FC = () => {
             ← Back to Mentors
           </button>
         </div>
-        <SimpleChatFollowUp
-          conversationId={conversationId}
-          otherProfileId={selectedMentor.id}
-        />
+        <ChatInterface />
       </div>
     );
   }
