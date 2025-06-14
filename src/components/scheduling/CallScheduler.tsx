@@ -228,7 +228,7 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
     try {
       console.log('Creating time slot for user:', user.id, 'profile:', profile.id);
       
-      // First, check if user has a mentor profile
+      // Check if user has a mentor profile
       const { data: mentor, error: mentorError } = await supabase
         .from('mentors')
         .select('id')
@@ -292,34 +292,22 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
 
       console.log('Creating slot with data:', slotData);
 
-      // Insert the time slot using the RPC function to bypass RLS
-      const { data, error } = await supabase.rpc('create_time_slot', {
-        p_mentor_id: mentorId,
-        p_start_time: startTime.toISOString(),
-        p_end_time: endTime.toISOString()
-      });
-
-      console.log('RPC result:', { data, error });
+      const { data, error } = await supabase
+        .from('time_slots')
+        .insert(slotData)
+        .select();
 
       if (error) {
         console.error('Time slot creation error:', error);
-        // Fallback to direct insert
-        const { data: directData, error: directError } = await supabase
-          .from('time_slots')
-          .insert(slotData)
-          .select();
-
-        if (directError) {
-          console.error('Direct insert error:', directError);
-          toast({
-            title: "Slot Creation Error",
-            description: `Failed to create time slot: ${directError.message}`,
-            variant: "destructive"
-          });
-          return;
-        }
-        console.log('Direct insert successful:', directData);
+        toast({
+          title: "Slot Creation Error",
+          description: `Failed to create time slot: ${error.message}`,
+          variant: "destructive"
+        });
+        return;
       }
+
+      console.log('Time slot created successfully:', data);
 
       toast({
         title: "Success",

@@ -16,8 +16,14 @@ export interface Profile {
   profile_image_url?: string;
 }
 
+export interface AuthUser {
+  id: string;
+  username: string;
+  role: 'startup' | 'mentor' | 'team';
+}
+
 export const useAuth = () => {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -61,7 +67,6 @@ export const useAuth = () => {
         };
 
         setProfile(fullProfile);
-        setUser(fullProfile);
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -140,13 +145,14 @@ export const useAuth = () => {
       await fetchFullProfile(credentials.id);
 
       // Save basic user data to localStorage for persistence
-      const basicUserData = {
+      const basicUserData: AuthUser = {
         id: credentials.id,
         username: credentials.username,
         role: credentials.role
       };
 
       localStorage.setItem('conquest_user', JSON.stringify(basicUserData));
+      setUser(basicUserData);
 
       return { user: basicUserData };
     } catch (error) {
