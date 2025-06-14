@@ -1,9 +1,10 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Calendar, Users, MessageSquare, Clock, BookOpen, Phone, Star, Building } from 'lucide-react';
 import StartupProfile from '@/components/startup/StartupProfile';
 import CallScheduler from '@/components/scheduling/CallScheduler';
@@ -72,7 +73,6 @@ const MentorDashboard = () => {
 
   const handleScheduleCall = (date: Date, time: string, startup: string) => {
     console.log(`Scheduling call with ${startup} on ${date.toDateString()} at ${time}`);
-    // Here you would typically make an API call to schedule the call
   };
 
   if (selectedStartup) {
@@ -237,7 +237,13 @@ const MentorDashboard = () => {
         </TabsContent>
 
         <TabsContent value="follow-up">
-          <PostCallFollowUp userRole="mentor" />
+          <PostCallFollowUp 
+            userRole="mentor" 
+            callId="mock-call-id"
+            startup="TechStart Inc."
+            mentor="John Smith"
+            date="2024-01-15"
+          />
         </TabsContent>
       </Tabs>
     </div>

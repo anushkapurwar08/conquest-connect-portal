@@ -78,7 +78,6 @@ const StartupDashboard = () => {
 
   const handleScheduleCall = (date: Date, time: string, mentor: string) => {
     console.log(`Scheduling call with ${mentor} on ${date.toDateString()} at ${time}`);
-    // Here you would typically make an API call to schedule the call
   };
 
   if (selectedMentor) {
@@ -95,7 +94,6 @@ const StartupDashboard = () => {
     return (
       <WaitlistManager 
         userRole="startup"
-        onClose={() => setShowWaitlist(false)}
       />
     );
   }
@@ -250,7 +248,13 @@ const StartupDashboard = () => {
         </TabsContent>
 
         <TabsContent value="follow-up">
-          <PostCallFollowUp userRole="startup" />
+          <PostCallFollowUp 
+            userRole="startup" 
+            callId="mock-call-id"
+            startup="TechStart Inc."
+            mentor="John Smith"
+            date="2024-01-15"
+          />
         </TabsContent>
       </Tabs>
     </div>

@@ -9,12 +9,6 @@ import { toast } from '@/hooks/use-toast';
 
 type UserRole = 'startup' | 'mentor' | 'team';
 
-interface LoginCredentials {
-  username: string;
-  password: string;
-  role: UserRole;
-}
-
 const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -30,7 +24,6 @@ const Login = () => {
     }
     
     // Team authentication: firstname / surname
-    // For demo purposes, using some common first/last name combinations
     const teamCredentials = [
       { username: 'john', password: 'doe' },
       { username: 'jane', password: 'smith' },
@@ -60,7 +53,6 @@ const Login = () => {
     const role = authenticateUser(username, password);
     
     if (role) {
-      // Store user role in localStorage for persistence
       localStorage.setItem('userRole', role);
       localStorage.setItem('username', username);
       
@@ -121,15 +113,6 @@ const Login = () => {
               Sign In
             </Button>
           </form>
-          
-          <div className="mt-6 text-sm text-muted-foreground">
-            <p className="font-semibold mb-2">Login Formats:</p>
-            <ul className="space-y-1 text-xs">
-              <li><strong>Startups:</strong> startupname_conquest / startupname_refcode</li>
-              <li><strong>Team:</strong> firstname / surname</li>
-              <li><strong>Mentors:</strong> mentor1 / mentor123</li>
-            </ul>
-          </div>
         </CardContent>
       </Card>
     </div>
