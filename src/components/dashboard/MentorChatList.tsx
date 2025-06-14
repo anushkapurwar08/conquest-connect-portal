@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Clock, User } from 'lucide-react';
+import { MessageSquare, Clock, User, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
@@ -39,6 +38,7 @@ const MentorChatList: React.FC = () => {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [mentorId, setMentorId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (profile?.id) {
@@ -53,23 +53,48 @@ const MentorChatList: React.FC = () => {
   }, [mentorId]);
 
   const fetchMentorId = async () => {
-    if (!profile?.id) return;
+    if (!profile?.id) {
+      setError('No profile found. Please ensure you are logged in.');
+      return;
+    }
 
     try {
+      console.log('Fetching mentor ID for profile:', profile.id);
+      
       const { data: mentor, error } = await supabase
         .from('mentors')
-        .select('id')
+        .select('id, mentor_type, profile_id')
         .eq('profile_id', profile.id)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching mentor:', error);
+        setError(`Database error: ${error.message}`);
+        toast({
+          title: "Error",
+          description: "Failed to load mentor profile. Please contact support.",
+          variant: "destructive"
+        });
         return;
       }
 
+      if (!mentor) {
+        console.log('No mentor record found for profile:', profile.id);
+        setError('No mentor record found. Please ensure your account is set up as a mentor.');
+        toast({
+          title: "Mentor Profile Not Found",
+          description: "Your account is not set up as a mentor. Please contact support to set up your mentor profile.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      console.log('Found mentor:', mentor);
       setMentorId(mentor.id);
+      setError(null);
     } catch (error) {
-      console.error('Error fetching mentor ID:', error);
+      console.error('Unexpected error fetching mentor ID:', error);
+      setError('An unexpected error occurred while loading your mentor profile.');
     }
   };
 
@@ -109,6 +134,7 @@ const MentorChatList: React.FC = () => {
 
       if (error) {
         console.error('Error fetching conversations:', error);
+        setError(`Failed to load conversations: ${error.message}`);
         toast({
           title: "Error",
           description: "Failed to load conversations. Please try again.",
@@ -141,8 +167,10 @@ const MentorChatList: React.FC = () => {
       }));
 
       setConversations(transformedConversations);
+      setError(null);
     } catch (error) {
       console.error('Unexpected error fetching conversations:', error);
+      setError('An unexpected error occurred while loading conversations.');
     } finally {
       setLoading(false);
     }
@@ -173,6 +201,35 @@ const MentorChatList: React.FC = () => {
     const lastMessage = conversation.messages[conversation.messages.length - 1];
     return new Date(lastMessage.created_at);
   };
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="text-center py-8">
+            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-500" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Unable to Load Mentor Chat</h3>
+            <p className="text-red-600 mb-4">{error}</p>
+            <div className="space-y-2 text-sm text-gray-600">
+              <p><strong>Debug Info:</strong></p>
+              <p>Profile ID: {profile?.id || 'Not found'}</p>
+              <p>Profile Role: {profile?.role || 'Not found'}</p>
+              <p>Mentor ID: {mentorId || 'Not found'}</p>
+            </div>
+            <Button 
+              onClick={() => {
+                setError(null);
+                fetchMentorId();
+              }}
+              className="mt-4"
+            >
+              Try Again
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (loading) {
     return (

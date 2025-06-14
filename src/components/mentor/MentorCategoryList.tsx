@@ -1,10 +1,9 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Star, Building } from 'lucide-react';
+import { MessageSquare, Building, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -50,6 +49,7 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
 }) => {
   const [mentors, setMentors] = useState<ProcessedMentor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMentors();
@@ -58,6 +58,7 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
   const fetchMentors = async () => {
     try {
       setLoading(true);
+      setError(null);
       console.log('Fetching mentors for type:', mentorType);
       
       const { data: mentorsData, error } = await supabase
@@ -77,10 +78,12 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
             bio
           )
         `)
-        .eq('mentor_type', mentorType);
+        .eq('mentor_type', mentorType)
+        .not('profiles', 'is', null);
 
       if (error) {
         console.error('Error fetching mentors:', error);
+        setError(`Failed to load mentors: ${error.message}`);
         toast({
           title: "Error",
           description: "Failed to load mentors. Please try again.",
@@ -97,7 +100,16 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
         return;
       }
 
-      const processedMentors = mentorsData.map((mentor: MentorData) => {
+      // Validate mentor data before processing
+      const validMentors = mentorsData.filter(mentor => {
+        if (!mentor.profiles) {
+          console.warn('Mentor missing profile data:', mentor.id);
+          return false;
+        }
+        return true;
+      });
+
+      const processedMentors = validMentors.map((mentor: MentorData) => {
         const profile = mentor.profiles;
         const name = profile?.first_name && profile?.last_name
           ? `${profile.first_name} ${profile.last_name}`
@@ -120,8 +132,34 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
       setMentors(processedMentors);
     } catch (error) {
       console.error('Unexpected error fetching mentors:', error);
+      setError('An unexpected error occurred while loading mentors.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSelectMentor = async (mentorId: string) => {
+    try {
+      // Verify mentor exists and is valid before proceeding
+      const mentor = mentors.find(m => m.id === mentorId);
+      if (!mentor) {
+        toast({
+          title: "Error",
+          description: "Selected mentor is not available.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      console.log('Selecting mentor:', mentor);
+      onSelectMentor(mentorId);
+    } catch (error) {
+      console.error('Error selecting mentor:', error);
+      toast({
+        title: "Error",
+        description: "Failed to select mentor. Please try again.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -176,6 +214,31 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
         return 'Professional mentors';
     }
   };
+
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-xl font-semibold">{getCategoryTitle()}</h3>
+          <p className="text-muted-foreground text-sm">{getCategoryDescription()}</p>
+        </div>
+        <div className="text-center py-8">
+          <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-500" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Unable to Load Mentors</h3>
+          <p className="text-red-600 mb-4">{error}</p>
+          <Button 
+            onClick={() => {
+              setError(null);
+              fetchMentors();
+            }}
+            variant="outline"
+          >
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -286,7 +349,7 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
                   <div className="flex flex-col space-y-2 ml-4">
                     <Button
                       size="sm"
-                      onClick={() => onSelectMentor(mentor.id)}
+                      onClick={() => handleSelectMentor(mentor.id)}
                       className="bg-orange-500 hover:bg-orange-600 min-w-[100px]"
                     >
                       <MessageSquare className="h-4 w-4 mr-1" />
