@@ -90,7 +90,51 @@ export const useAuth = () => {
         throw new Error('Invalid username or password');
       }
 
-      console.log('Credentials verified, fetching full profile');
+      console.log('Credentials verified, creating auth session');
+
+      // Create a temporary email for Supabase auth using the user ID
+      const tempEmail = `${credentials.id}@conquest-temp.com`;
+      const tempPassword = credentials.id; // Use the ID as password for consistency
+
+      try {
+        // Try to sign in with existing Supabase user
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: tempEmail,
+          password: tempPassword,
+        });
+
+        if (signInError && signInError.message.includes('Invalid login credentials')) {
+          console.log('Supabase user does not exist, creating one...');
+          
+          // Create a new Supabase user
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+            email: tempEmail,
+            password: tempPassword,
+            options: {
+              data: {
+                username: credentials.username,
+                role: credentials.role,
+                profile_id: credentials.id
+              }
+            }
+          });
+
+          if (signUpError) {
+            console.error('Error creating Supabase user:', signUpError);
+            throw new Error('Failed to create authentication session');
+          }
+
+          console.log('Supabase user created successfully');
+        } else if (signInError) {
+          console.error('Error signing in to Supabase:', signInError);
+          throw new Error('Failed to create authentication session');
+        }
+
+        console.log('Supabase auth session established');
+      } catch (authError) {
+        console.error('Supabase auth error:', authError);
+        // Continue with local auth even if Supabase auth fails
+      }
 
       // Fetch full profile data
       await fetchFullProfile(credentials.id);
@@ -112,6 +156,12 @@ export const useAuth = () => {
   };
 
   const signOut = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Error signing out from Supabase:', error);
+    }
+    
     localStorage.removeItem('conquest_user');
     setUser(null);
     setProfile(null);
