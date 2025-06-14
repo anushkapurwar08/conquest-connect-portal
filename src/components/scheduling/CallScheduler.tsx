@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -40,7 +39,7 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
   const [loading, setLoading] = useState(false);
   const [showSlotCreation, setShowSlotCreation] = useState(false);
   const [selectedTime, setSelectedTime] = useState('');
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
 
   useEffect(() => {
     if (profile && selectedDate) {
@@ -217,7 +216,7 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
       return;
     }
 
-    if (!profile?.id) {
+    if (!user || !profile?.id) {
       toast({
         title: "Error",
         description: "User not authenticated. Please log in again.",
@@ -227,28 +226,49 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
     }
 
     try {
-      console.log('Creating time slot for profile:', profile?.id);
+      console.log('User authenticated:', user.id);
+      console.log('Profile ID:', profile.id);
+      console.log('User role:', profile.role);
       
-      // First, check if user is authenticated and has a mentor profile
+      // Check current session
+      const { data: session } = await supabase.auth.getSession();
+      console.log('Current session:', session?.session?.user?.id);
+      
+      if (!session?.session) {
+        toast({
+          title: "Authentication Error",
+          description: "No active session found. Please log out and log back in.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // First, check if user has a mentor profile
+      console.log('Checking for mentor profile...');
       const { data: mentor, error: mentorError } = await supabase
         .from('mentors')
         .select('id')
         .eq('profile_id', profile.id)
         .maybeSingle();
 
+      console.log('Mentor query result:', { mentor, mentorError });
+
       if (mentorError) {
         console.error('Mentor fetch error:', mentorError);
         toast({
-          title: "Error",
-          description: "Could not verify mentor profile. Please try again.",
+          title: "Database Error",
+          description: `Could not verify mentor profile: ${mentorError.message}`,
           variant: "destructive"
         });
         return;
       }
 
+      let mentorId = mentor?.id;
+
       if (!mentor) {
-        // Create a mentor profile if it doesn't exist
-        console.log('Creating mentor profile for user:', profile.id);
+        console.log('No mentor profile found, creating one...');
+        
+        // Create a mentor profile
         const { data: newMentor, error: createMentorError } = await supabase
           .from('mentors')
           .insert({
@@ -257,34 +277,20 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
           .select('id')
           .single();
 
+        console.log('Mentor creation result:', { newMentor, createMentorError });
+
         if (createMentorError) {
           console.error('Error creating mentor profile:', createMentorError);
           toast({
-            title: "Error",
-            description: "Could not create mentor profile. Please contact support.",
+            title: "Profile Creation Error",
+            description: `Could not create mentor profile: ${createMentorError.message}`,
             variant: "destructive"
           });
           return;
         }
 
-        if (!newMentor) {
-          toast({
-            title: "Error",
-            description: "Failed to create mentor profile.",
-            variant: "destructive"
-          });
-          return;
-        }
-
-        console.log('Created new mentor profile:', newMentor.id);
+        mentorId = newMentor?.id;
       }
-
-      // Get the mentor ID (either existing or newly created)
-      const mentorId = mentor?.id || (await supabase
-        .from('mentors')
-        .select('id')
-        .eq('profile_id', profile.id)
-        .single()).data?.id;
 
       if (!mentorId) {
         toast({
@@ -302,31 +308,29 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
       startTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
       
       const endTime = new Date(startTime);
-      endTime.setHours(startTime.getHours() + 1); // 1-hour slots
+      endTime.setHours(startTime.getHours() + 1);
 
-      console.log('Creating slot with:', {
+      const slotData = {
         mentor_id: mentorId,
         start_time: startTime.toISOString(),
         end_time: endTime.toISOString(),
         is_available: true,
         status: 'available'
-      });
+      };
+
+      console.log('Creating slot with data:', slotData);
 
       const { data, error } = await supabase
         .from('time_slots')
-        .insert({
-          mentor_id: mentorId,
-          start_time: startTime.toISOString(),
-          end_time: endTime.toISOString(),
-          is_available: true,
-          status: 'available'
-        })
+        .insert(slotData)
         .select();
+
+      console.log('Insert result:', { data, error });
 
       if (error) {
         console.error('Time slot creation error:', error);
         toast({
-          title: "Error",
+          title: "Slot Creation Error",
           description: `Failed to create time slot: ${error.message}`,
           variant: "destructive"
         });
@@ -336,7 +340,7 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
       console.log('Time slot created successfully:', data);
 
       toast({
-        title: "Time Slot Created",
+        title: "Success",
         description: "Your available time slot has been created successfully.",
       });
 
@@ -344,10 +348,10 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole, onScheduleCall 
       setShowSlotCreation(false);
       fetchAvailableSlots();
     } catch (error) {
-      console.error('Error creating time slot:', error);
+      console.error('Unexpected error creating time slot:', error);
       toast({
-        title: "Error",
-        description: "Failed to create time slot. Please try again.",
+        title: "Unexpected Error",
+        description: "An unexpected error occurred. Please try again.",
         variant: "destructive"
       });
     }
