@@ -81,7 +81,13 @@ export const useChat = (mentorId?: string, startupId?: string) => {
         return;
       }
 
-      setMessages(data || []);
+      // Cast the data to ensure message_type matches our interface
+      const typedMessages: Message[] = (data || []).map(msg => ({
+        ...msg,
+        message_type: msg.message_type as 'message' | 'follow_up_call'
+      }));
+
+      setMessages(typedMessages);
     } catch (error) {
       console.error('Error loading messages:', error);
     }
@@ -122,8 +128,14 @@ export const useChat = (mentorId?: string, startupId?: string) => {
         return;
       }
 
+      // Cast the response data to match our Message interface
+      const typedMessage: Message = {
+        ...data,
+        message_type: data.message_type as 'message' | 'follow_up_call'
+      };
+
       // Add the new message to local state
-      setMessages(prev => [...prev, data]);
+      setMessages(prev => [...prev, typedMessage]);
       
       toast({
         title: "Message Sent",
@@ -176,10 +188,14 @@ export const useChat = (mentorId?: string, startupId?: string) => {
           filter: `conversation_id=eq.${conversation.id}`
         },
         (payload) => {
-          const newMessage = payload.new as Message;
+          const newMessage = payload.new as any;
           // Only add the message if it's not from the current user to avoid duplicates
           if (newMessage.sender_profile_id !== profile?.id) {
-            setMessages(prev => [...prev, newMessage]);
+            const typedMessage: Message = {
+              ...newMessage,
+              message_type: newMessage.message_type as 'message' | 'follow_up_call'
+            };
+            setMessages(prev => [...prev, typedMessage]);
           }
         }
       )
