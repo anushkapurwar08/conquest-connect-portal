@@ -12,120 +12,75 @@ import { toast } from '@/hooks/use-toast';
 const StartupMentorChat: React.FC = () => {
   const { profile } = useAuth();
   const [selectedMentor, setSelectedMentor] = useState<{ id: string; type: string } | null>(null);
-  const [startupId, setStartupId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (profile?.id) {
-      fetchStartupId();
-    }
-  }, [profile?.id]);
-
-  const fetchStartupId = async () => {
+  const handleSelectMentor = async (mentorProfileId: string, mentorType: 'founder_mentor' | 'expert' | 'coach') => {
     if (!profile?.id) {
-      setError('No profile found. Please ensure you are logged in.');
-      setLoading(false);
+      toast({
+        title: "Error",
+        description: "Profile not found. Please refresh and try again.",
+        variant: "destructive"
+      });
       return;
     }
 
+    console.log('Selected mentor profile:', mentorProfileId, 'type:', mentorType);
+    setLoading(true);
+    
     try {
-      console.log('Fetching startup ID for profile:', profile.id);
-
-      const { data: startup, error } = await supabase
-        .from('startups')
-        .select('id, startup_name')
-        .eq('profile_id', profile.id)
+      // Check if conversation exists between this startup and mentor
+      const { data: existingConversation, error: convError } = await supabase
+        .from('conversations')
+        .select('id')
+        .or(`and(mentor_id.eq.${mentorProfileId},startup_id.eq.${profile.id}),and(mentor_id.eq.${profile.id},startup_id.eq.${mentorProfileId})`)
         .maybeSingle();
 
-      if (error) {
-        console.error('Error fetching startup:', error);
-        setError(`Database error: ${error.message}`);
-        toast({
-          title: "Error",
-          description: "Failed to load startup profile. Please try again.",
-          variant: "destructive"
-        });
-        setLoading(false);
-        return;
+      if (convError) {
+        console.error('Error checking for existing conversation:', convError);
+        throw new Error('Failed to check for existing conversation');
       }
 
-      if (!startup) {
-        console.log('No startup record found for profile:', profile.id);
-        setError('No startup record found. Please ensure your account is set up with startup information.');
-        toast({
-          title: "Startup Profile Not Found",
-          description: "Your account is not set up with startup information. Please complete your startup profile first.",
-          variant: "destructive"
-        });
-        setLoading(false);
-        return;
+      let finalConversationId = existingConversation?.id;
+
+      // If no conversation exists, create one
+      if (!finalConversationId) {
+        const { data: newConversation, error: createError } = await supabase
+          .from('conversations')
+          .insert({
+            mentor_id: mentorProfileId,
+            startup_id: profile.id
+          })
+          .select('id')
+          .single();
+
+        if (createError) {
+          console.error('Error creating conversation:', createError);
+          throw new Error('Failed to create conversation');
+        }
+
+        finalConversationId = newConversation.id;
       }
 
-      console.log('Found startup:', startup);
-      setStartupId(startup.id);
+      setConversationId(finalConversationId);
+      setSelectedMentor({ id: mentorProfileId, type: mentorType });
       setError(null);
     } catch (error) {
-      console.error('Error fetching startup ID:', error);
-      setError('An unexpected error occurred while loading your startup profile.');
+      console.error('Error setting up conversation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to start conversation. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSelectMentor = async (mentorId: string, mentorType: 'founder_mentor' | 'expert' | 'coach') => {
-    if (!startupId) {
-      toast({
-        title: "Error",
-        description: "Startup profile not found. Please refresh the page and try again.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    console.log('Selected mentor:', mentorId, 'type:', mentorType);
-    
-    // Verify mentor exists and has proper profile linkage
-    try {
-      const { data: mentor, error } = await supabase
-        .from('mentors')
-        .select(`
-          id,
-          mentor_type,
-          profile_id,
-          profiles!inner(
-            first_name,
-            last_name,
-            username
-          )
-        `)
-        .eq('id', mentorId)
-        .maybeSingle();
-
-      if (error || !mentor) {
-        console.error('Error verifying mentor:', error);
-        toast({
-          title: "Error",
-          description: "Selected mentor is not available. Please try another mentor.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      console.log('Verified mentor:', mentor);
-      setSelectedMentor({ id: mentorId, type: mentorType });
-    } catch (error) {
-      console.error('Error verifying mentor:', error);
-      toast({
-        title: "Error",
-        description: "Failed to verify mentor. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
-
   const handleBackToMentors = () => {
     setSelectedMentor(null);
+    setConversationId(null);
   };
 
   if (loading) {
@@ -133,7 +88,7 @@ const StartupMentorChat: React.FC = () => {
       <Card>
         <CardContent className="p-6 text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
-          <p className="mt-2 text-muted-foreground">Loading your startup profile...</p>
+          <p className="mt-2 text-muted-foreground">Setting up conversation...</p>
         </CardContent>
       </Card>
     );
@@ -151,17 +106,11 @@ const StartupMentorChat: React.FC = () => {
         <CardContent>
           <div className="space-y-4">
             <p className="text-red-600">{error}</p>
-            <div className="space-y-2 text-sm text-gray-600">
-              <p><strong>Debug Info:</strong></p>
-              <p>Profile ID: {profile?.id || 'Not found'}</p>
-              <p>Profile Role: {profile?.role || 'Not found'}</p>
-              <p>Startup ID: {startupId || 'Not found'}</p>
-            </div>
             <Button 
               onClick={() => {
                 setError(null);
-                setLoading(true);
-                fetchStartupId();
+                setSelectedMentor(null);
+                setConversationId(null);
               }}
             >
               Try Again
@@ -172,7 +121,7 @@ const StartupMentorChat: React.FC = () => {
     );
   }
 
-  if (selectedMentor && startupId) {
+  if (selectedMentor && conversationId) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -184,9 +133,8 @@ const StartupMentorChat: React.FC = () => {
           </button>
         </div>
         <SimpleChatFollowUp
-          userRole="startup"
-          mentorId={selectedMentor.id}
-          startupId={startupId}
+          conversationId={conversationId}
+          otherProfileId={selectedMentor.id}
         />
       </div>
     );
