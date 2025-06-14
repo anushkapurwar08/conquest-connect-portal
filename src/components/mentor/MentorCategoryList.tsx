@@ -1,21 +1,32 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { MessageSquare, Calendar, Star } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
-interface BaseMentor {
+interface MentorData {
+  id: string;
+  mentor_type: string;
+  profiles: {
+    first_name: string | null;
+    last_name: string | null;
+    username: string;
+    expertise: string[] | null;
+    title: string | null;
+  } | null;
+}
+
+interface ProcessedMentor {
   id: string;
   name: string;
   expertise: string[];
   currentRole: string;
   rating: number;
   sessionsCompleted: number;
-}
-
-interface EnhancedMentor extends BaseMentor {
   typeSpecific: string;
   availability: string;
 }
@@ -33,11 +44,84 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
   onOpenProfile,
   selectedMentorId 
 }) => {
-  // Mock data - in real app this would come from API filtered by mentor_type
-  const getMentorsByType = (): EnhancedMentor[] => {
-    const baseMentors: BaseMentor[] = [
+  const [mentors, setMentors] = useState<ProcessedMentor[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchMentors();
+  }, [mentorType]);
+
+  const fetchMentors = async () => {
+    try {
+      setLoading(true);
+      console.log('Fetching mentors for type:', mentorType);
+      
+      const { data: mentorsData, error } = await supabase
+        .from('mentors')
+        .select(`
+          id,
+          mentor_type,
+          profiles!inner(
+            first_name,
+            last_name,
+            username,
+            expertise,
+            title
+          )
+        `)
+        .eq('mentor_type', mentorType);
+
+      if (error) {
+        console.error('Error fetching mentors:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load mentors. Please try again.",
+          variant: "destructive"
+        });
+        setMentors(getFallbackMentors());
+        return;
+      }
+
+      console.log('Fetched mentors data:', mentorsData);
+
+      if (!mentorsData || mentorsData.length === 0) {
+        console.log('No mentors found, using fallback data');
+        setMentors(getFallbackMentors());
+        return;
+      }
+
+      const processedMentors = mentorsData.map((mentor: MentorData) => {
+        const profile = mentor.profiles;
+        const name = profile?.first_name && profile?.last_name
+          ? `${profile.first_name} ${profile.last_name}`
+          : profile?.username || 'Unknown Mentor';
+
+        return {
+          id: mentor.id,
+          name,
+          expertise: profile?.expertise || ['General Mentoring'],
+          currentRole: profile?.title || 'Mentor',
+          rating: 4.8, // Mock data - could be calculated from reviews
+          sessionsCompleted: Math.floor(Math.random() * 200) + 50, // Mock data
+          typeSpecific: getTypeSpecific(mentor.mentor_type),
+          availability: getAvailability(mentor.mentor_type)
+        };
+      });
+
+      setMentors(processedMentors);
+    } catch (error) {
+      console.error('Unexpected error fetching mentors:', error);
+      setMentors(getFallbackMentors());
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getFallbackMentors = (): ProcessedMentor[] => {
+    // Fallback data in case database is empty
+    const baseMentors = [
       {
-        id: '1',
+        id: 'fallback-1',
         name: 'Sarah Johnson',
         expertise: ['Product Strategy', 'Go-to-Market'],
         currentRole: 'Former CEO at TechCorp',
@@ -45,53 +129,47 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
         sessionsCompleted: 156
       },
       {
-        id: '2',
+        id: 'fallback-2',
         name: 'Michael Chen',
         expertise: ['Engineering', 'Team Building'],
         currentRole: 'CTO at StartupX',
         rating: 4.8,
         sessionsCompleted: 89
-      },
-      {
-        id: '3',
-        name: 'Emily Rodriguez',
-        expertise: ['Marketing', 'Brand Strategy'],
-        currentRole: 'VP Marketing at GrowthCo',
-        rating: 4.7,
-        sessionsCompleted: 203
       }
     ];
 
-    // Customize based on mentor type
-    switch (mentorType) {
+    return baseMentors.map(mentor => ({
+      ...mentor,
+      typeSpecific: getTypeSpecific(mentorType),
+      availability: getAvailability(mentorType)
+    }));
+  };
+
+  const getTypeSpecific = (type: string): string => {
+    switch (type) {
       case 'founder_mentor':
-        return baseMentors.map(mentor => ({
-          ...mentor,
-          typeSpecific: 'Serial Entrepreneur',
-          availability: 'Limited slots'
-        }));
+        return 'Serial Entrepreneur';
       case 'expert':
-        return baseMentors.map(mentor => ({
-          ...mentor,
-          typeSpecific: 'Industry Expert',
-          availability: 'Available this week'
-        }));
+        return 'Industry Expert';
       case 'coach':
-        return baseMentors.map(mentor => ({
-          ...mentor,
-          typeSpecific: 'Executive Coach',
-          availability: 'Recurring sessions'
-        }));
+        return 'Executive Coach';
       default:
-        return baseMentors.map(mentor => ({
-          ...mentor,
-          typeSpecific: 'Mentor',
-          availability: 'Available'
-        }));
+        return 'Mentor';
     }
   };
 
-  const mentors = getMentorsByType();
+  const getAvailability = (type: string): string => {
+    switch (type) {
+      case 'founder_mentor':
+        return 'Limited slots';
+      case 'expert':
+        return 'Available this week';
+      case 'coach':
+        return 'Recurring sessions';
+      default:
+        return 'Available';
+    }
+  };
 
   const getCategoryTitle = () => {
     switch (mentorType) {
@@ -119,6 +197,21 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
     }
   };
 
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-xl font-semibold">{getCategoryTitle()}</h3>
+          <p className="text-muted-foreground text-sm">{getCategoryDescription()}</p>
+        </div>
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Loading mentors...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div>
@@ -127,79 +220,86 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
       </div>
       
       <div className="grid gap-4">
-        {mentors.map((mentor) => (
-          <Card 
-            key={mentor.id}
-            className={`cursor-pointer transition-all hover:shadow-md ${
-              selectedMentorId === mentor.id ? 'ring-2 ring-orange-500' : ''
-            }`}
-          >
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start space-x-3 flex-1">
-                  <Avatar className="h-12 w-12">
-                    <AvatarFallback className="bg-orange-100 text-orange-600">
-                      {mentor.name.split(' ').map(n => n[0]).join('')}
-                    </AvatarFallback>
-                  </Avatar>
-                  
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2">
-                      <h4 className="font-medium">{mentor.name}</h4>
-                      <Badge variant="outline" className="text-xs">
-                        {mentor.typeSpecific}
-                      </Badge>
-                    </div>
+        {mentors.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <p>No mentors available in this category</p>
+            <p className="text-sm">Please check back later</p>
+          </div>
+        ) : (
+          mentors.map((mentor) => (
+            <Card 
+              key={mentor.id}
+              className={`cursor-pointer transition-all hover:shadow-md ${
+                selectedMentorId === mentor.id ? 'ring-2 ring-orange-500' : ''
+              }`}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start space-x-3 flex-1">
+                    <Avatar className="h-12 w-12">
+                      <AvatarFallback className="bg-orange-100 text-orange-600">
+                        {mentor.name.split(' ').map(n => n[0]).join('')}
+                      </AvatarFallback>
+                    </Avatar>
                     
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {mentor.currentRole}
-                    </p>
-                    
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {mentor.expertise.slice(0, 2).map((skill, i) => (
-                        <Badge key={i} variant="secondary" className="text-xs">
-                          {skill}
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <h4 className="font-medium">{mentor.name}</h4>
+                        <Badge variant="outline" className="text-xs">
+                          {mentor.typeSpecific}
                         </Badge>
-                      ))}
-                      {mentor.expertise.length > 2 && (
-                        <Badge variant="secondary" className="text-xs">
-                          +{mentor.expertise.length - 2} more
-                        </Badge>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center space-x-4 mt-2 text-xs text-muted-foreground">
-                      <div className="flex items-center space-x-1">
-                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                        <span>{mentor.rating}</span>
                       </div>
-                      <span>{mentor.sessionsCompleted} sessions</span>
-                      <span className="text-green-600">{mentor.availability}</span>
+                      
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {mentor.currentRole}
+                      </p>
+                      
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {mentor.expertise.slice(0, 2).map((skill, i) => (
+                          <Badge key={i} variant="secondary" className="text-xs">
+                            {skill}
+                          </Badge>
+                        ))}
+                        {mentor.expertise.length > 2 && (
+                          <Badge variant="secondary" className="text-xs">
+                            +{mentor.expertise.length - 2} more
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center space-x-4 mt-2 text-xs text-muted-foreground">
+                        <div className="flex items-center space-x-1">
+                          <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                          <span>{mentor.rating}</span>
+                        </div>
+                        <span>{mentor.sessionsCompleted} sessions</span>
+                        <span className="text-green-600">{mentor.availability}</span>
+                      </div>
                     </div>
                   </div>
+                  
+                  <div className="flex space-x-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onOpenProfile(mentor.id)}
+                    >
+                      View Profile
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => onSelectMentor(mentor.id)}
+                      className="bg-orange-500 hover:bg-orange-600"
+                    >
+                      <MessageSquare className="h-4 w-4 mr-1" />
+                      Chat
+                    </Button>
+                  </div>
                 </div>
-                
-                <div className="flex space-x-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => onOpenProfile(mentor.id)}
-                  >
-                    View Profile
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => onSelectMentor(mentor.id)}
-                    className="bg-orange-500 hover:bg-orange-600"
-                  >
-                    <MessageSquare className="h-4 w-4 mr-1" />
-                    Chat
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
     </div>
   );

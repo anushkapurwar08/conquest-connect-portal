@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +9,8 @@ import { LogOut } from 'lucide-react';
 import StartupDashboard from '@/components/dashboard/StartupDashboard';
 import MentorDashboard from '@/components/dashboard/MentorDashboard';
 import { useAuth } from '@/hooks/useAuth';
+import { useSampleData } from '@/hooks/useSampleData';
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const {
@@ -16,11 +19,16 @@ const Dashboard = () => {
     loading,
     signOut
   } = useAuth();
+
+  // Initialize sample data
+  useSampleData();
+
   useEffect(() => {
     if (!loading && !user) {
       navigate('/login');
     }
   }, [user, loading, navigate]);
+
   const handleLogout = async () => {
     try {
       await signOut();
@@ -29,6 +37,7 @@ const Dashboard = () => {
       console.error('Logout error:', error);
     }
   };
+
   if (loading) {
     return <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -37,21 +46,25 @@ const Dashboard = () => {
         </div>
       </div>;
   }
+
   if (!user || !profile) {
     return null;
   }
+
   const getDisplayName = () => {
     if (profile.first_name && profile.last_name) {
       return `${profile.first_name} ${profile.last_name}`;
     }
     return profile.username;
   };
+
   const getInitials = () => {
     if (profile.first_name && profile.last_name) {
       return `${profile.first_name[0]}${profile.last_name[0]}`;
     }
     return profile.username.slice(0, 2).toUpperCase();
   };
+
   return <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b bg-card">
@@ -96,4 +109,5 @@ const Dashboard = () => {
       </main>
     </div>;
 };
+
 export default Dashboard;
