@@ -76,7 +76,7 @@ const AdminSchedulingControls: React.FC = () => {
     }
   };
 
-  const toggleMentorVisibility = async (mentorType: string, isVisible: boolean) => {
+  const toggleMentorVisibility = async (mentorType: 'founder_mentor' | 'expert' | 'coach', isVisible: boolean) => {
     try {
       const { error } = await supabase
         .from('mentor_toggles')
