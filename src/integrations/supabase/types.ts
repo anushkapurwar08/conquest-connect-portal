@@ -84,7 +84,7 @@ export type Database = {
           created_at: string | null
           id: string
           is_active: boolean | null
-          password_hash: string
+          password: string
           role: Database["public"]["Enums"]["user_role"]
           startup_name: string | null
           username: string
@@ -93,7 +93,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
-          password_hash: string
+          password: string
           role: Database["public"]["Enums"]["user_role"]
           startup_name?: string | null
           username: string
@@ -102,7 +102,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
-          password_hash?: string
+          password?: string
           role?: Database["public"]["Enums"]["user_role"]
           startup_name?: string | null
           username?: string

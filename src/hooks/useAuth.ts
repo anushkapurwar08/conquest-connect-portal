@@ -77,59 +77,27 @@ export const useAuth = () => {
     try {
       console.log('Attempting login for username:', username);
       
-      // First, let's see what's actually in the database
-      const { data: allCredentials, error: listError } = await supabase
-        .from('auth_credentials')
-        .select('username, role')
-        .eq('is_active', true);
-      
-      console.log('Available usernames in database:', allCredentials?.map(c => c.username));
-      
       // Check credentials in our custom auth table
       const { data: credentials, error: credError } = await supabase
         .from('auth_credentials')
         .select('*')
         .eq('username', username)
+        .eq('password', password)
         .eq('is_active', true)
-        .maybeSingle();
+        .single();
 
       console.log('Credentials query result:', { credentials, credError });
 
-      if (credError) {
-        console.error('Database error:', credError);
-        throw new Error('Database error occurred');
-      }
-
-      if (!credentials) {
-        console.log('No credentials found for username:', username);
+      if (credError || !credentials) {
+        console.log('Invalid credentials');
         throw new Error('Invalid username or password');
       }
 
-      // Check password against known credentials
-      const validCredentials = {
-        'admin': 'admin',
-        'john': 'doe',
-        'jane': 'smith',
-        'techflow_conquest': 'techflow_refcode',
-        'greenstart_conquest': 'greenstart_refcode',
-        'mentor1': 'mentor123',
-        'johnsmith': 'mentor456'
-      };
-
-      const expectedPassword = validCredentials[username as keyof typeof validCredentials];
-      console.log('Expected password for', username, ':', expectedPassword);
-      console.log('Provided password:', password);
-      
-      if (!expectedPassword || password !== expectedPassword) {
-        console.log('Password mismatch');
-        throw new Error('Invalid username or password');
-      }
-
-      console.log('Password verified, proceeding with Supabase auth');
+      console.log('Credentials verified, proceeding with Supabase auth');
 
       // Create or sign in user with Supabase Auth
       const email = `${username}@conquest.local`;
-      const supabasePassword = `${username}_${password}`;
+      const supabasePassword = `${username}_conquest_2024`;
       
       // Try to sign in first
       let { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
