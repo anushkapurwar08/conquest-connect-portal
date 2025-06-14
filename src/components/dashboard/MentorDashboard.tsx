@@ -216,7 +216,7 @@ const MentorDashboard = () => {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
           <TabsTrigger value="startups">Startups</TabsTrigger>
-          <TabsTrigger value="notes">Shared Notes</TabsTrigger>
+          <TabsTrigger value="community">Community</TabsTrigger>
           <TabsTrigger value="follow-up">Chat</TabsTrigger>
         </TabsList>
 
@@ -376,12 +376,24 @@ const MentorDashboard = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="notes">
-          <SharedMentorNotes />
+        <TabsContent value="community">
+          <Card>
+            <CardHeader>
+              <CardTitle>Startup Community</CardTitle>
+              <CardDescription>Connect with other startups and entrepreneurs</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8 text-muted-foreground">
+                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Community features coming soon</p>
+                <p className="text-sm">Join discussions and network with fellow entrepreneurs</p>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="follow-up">
-          <SimpleChatFollowUp userRole="mentor" />
+          <SimpleChatFollowUp />
         </TabsContent>
       </Tabs>
     </div>

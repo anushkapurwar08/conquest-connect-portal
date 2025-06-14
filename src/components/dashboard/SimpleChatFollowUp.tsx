@@ -10,16 +10,22 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProfileChat } from '@/hooks/useProfileChat';
 
 interface SimpleChatFollowUpProps {
-  conversationId: string;
-  otherProfileId: string;
+  conversationId?: string;
+  otherProfileId?: string;
+  userRole?: string;
+  mentorId?: string;
+  startupId?: string;
 }
 
 const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({ 
   conversationId,
-  otherProfileId
+  otherProfileId,
+  userRole,
+  mentorId,
+  startupId
 }) => {
   const { profile } = useAuth();
-  const { messages, loading, sendMessage } = useProfileChat(conversationId);
+  const { messages, loading, sendMessage } = useProfileChat(conversationId || '');
   const [newMessage, setNewMessage] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [followUpTime, setFollowUpTime] = useState('');
@@ -27,6 +33,9 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
   console.log('SimpleChatFollowUp: Initializing with props:', { 
     conversationId,
     otherProfileId,
+    userRole,
+    mentorId,
+    startupId,
     profile: !!profile 
   });
 
