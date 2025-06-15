@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Calendar, Users, MessageSquare, Clock, BookOpen, Phone, Building } from 'lucide-react';
 import StartupProfile from '@/components/startup/StartupProfile';
 import CallScheduler from '@/components/scheduling/CallScheduler';
-import SimplifiedChat from '@/components/chat/SimplifiedChat';
+import MentorChatDashboard from './MentorChatDashboard';
 import SharedMentorNotes from './SharedMentorNotes';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -381,7 +381,7 @@ const MentorDashboard = () => {
         </TabsContent>
 
         <TabsContent value="chat">
-          <SimplifiedChat />
+          <MentorChatDashboard />
         </TabsContent>
       </Tabs>
     </div>
