@@ -45,6 +45,10 @@ const MentorChatDashboard: React.FC = () => {
           <TabsContent value="assignments" className="mt-6">
             <CoachAssignmentManager />
           </TabsContent>
+          
+          <TabsContent value="follow-up">
+            <MentorChatList />
+          </TabsContent>
         </Tabs>
       ) : (
         <MentorChatList />
