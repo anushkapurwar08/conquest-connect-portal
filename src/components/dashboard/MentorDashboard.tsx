@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -54,21 +53,34 @@ const MentorDashboard = () => {
   const fetchMentorData = async () => {
     try {
       setLoading(true);
+      console.log('Fetching mentor data for profile:', profile?.id);
 
       // Get mentor info
-      const { data: mentor } = await supabase
+      const { data: mentor, error: mentorError } = await supabase
         .from('mentors')
         .select('id')
         .eq('profile_id', profile?.id)
-        .single();
+        .maybeSingle();
 
-      if (!mentor) {
+      console.log('Mentor query result:', mentor);
+      console.log('Mentor error:', mentorError);
+
+      if (mentorError) {
+        console.error('Error fetching mentor:', mentorError);
         setLoading(false);
         return;
       }
 
+      if (!mentor) {
+        console.log('No mentor found for this profile');
+        setLoading(false);
+        return;
+      }
+
+      console.log('Found mentor with ID:', mentor.id);
+
       // Fetch assigned startups through assignments table
-      const { data: assignmentsData } = await supabase
+      const { data: assignmentsData, error: assignmentsError } = await supabase
         .from('assignments')
         .select(`
           startups!inner(
@@ -82,15 +94,24 @@ const MentorDashboard = () => {
         .eq('mentor_id', mentor.id)
         .eq('is_active', true);
 
-      if (assignmentsData) {
-        const formattedStartups: Startup[] = assignmentsData.map((assignment: any) => ({
-          id: assignment.startups.id,
-          name: assignment.startups.startup_name,
-          description: assignment.startups.description || 'No description available',
-          industry: assignment.startups.industry,
-          stage: assignment.startups.stage,
-          logoUrl: '/placeholder.svg'
-        }));
+      console.log('Assignments query result:', assignmentsData);
+      console.log('Assignments error:', assignmentsError);
+
+      if (assignmentsError) {
+        console.error('Error fetching assignments:', assignmentsError);
+      } else if (assignmentsData) {
+        const formattedStartups: Startup[] = assignmentsData.map((assignment: any) => {
+          console.log('Processing assignment:', assignment);
+          return {
+            id: assignment.startups.id,
+            name: assignment.startups.startup_name,
+            description: assignment.startups.description || 'No description available',
+            industry: assignment.startups.industry,
+            stage: assignment.startups.stage,
+            logoUrl: '/placeholder.svg'
+          };
+        });
+        console.log('Formatted assigned startups:', formattedStartups);
         setAssignedStartups(formattedStartups);
       }
 

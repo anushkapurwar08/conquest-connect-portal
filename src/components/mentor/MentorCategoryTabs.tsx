@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -46,11 +45,12 @@ const MentorCategoryTabs: React.FC<MentorCategoryTabsProps> = ({
   const fetchStartupAndMentors = async () => {
     try {
       setLoading(true);
+      console.log('Fetching startup and mentors for profile:', profile?.id);
 
       // First get the startup ID for the current user
       const { data: startup, error: startupError } = await supabase
         .from('startups')
-        .select('id')
+        .select('id, startup_name')
         .eq('profile_id', profile?.id)
         .maybeSingle();
 
@@ -64,6 +64,7 @@ const MentorCategoryTabs: React.FC<MentorCategoryTabsProps> = ({
         return;
       }
 
+      console.log('Found startup:', startup);
       setStartupId(startup.id);
 
       // Fetch assigned mentors for this startup through assignments table
@@ -88,6 +89,9 @@ const MentorCategoryTabs: React.FC<MentorCategoryTabsProps> = ({
         .eq('startup_id', startup.id)
         .eq('is_active', true);
 
+      console.log('Assignments query result:', assignments);
+      console.log('Assignments error:', assignmentsError);
+
       if (assignmentsError) {
         console.error('Error fetching assignments:', assignmentsError);
         toast({
@@ -99,14 +103,18 @@ const MentorCategoryTabs: React.FC<MentorCategoryTabsProps> = ({
       }
 
       // Transform the data to match our Mentor interface
-      const assignedMentors: Mentor[] = assignments?.map((assignment: any) => ({
-        id: assignment.mentors.id,
-        mentor_type: assignment.mentors.mentor_type,
-        years_experience: assignment.mentors.years_experience,
-        specializations: assignment.mentors.specializations || [],
-        profiles: assignment.mentors.profiles
-      })) || [];
+      const assignedMentors: Mentor[] = assignments?.map((assignment: any) => {
+        console.log('Processing assignment:', assignment);
+        return {
+          id: assignment.mentors.id,
+          mentor_type: assignment.mentors.mentor_type,
+          years_experience: assignment.mentors.years_experience,
+          specializations: assignment.mentors.specializations || [],
+          profiles: assignment.mentors.profiles
+        };
+      }) || [];
 
+      console.log('Processed mentors:', assignedMentors);
       setMentors(assignedMentors);
     } catch (error) {
       console.error('Error fetching mentors:', error);
