@@ -78,6 +78,29 @@ const StartupMentorChat: React.FC = () => {
 
   const fetchMentorSlots = async (mentorId: string) => {
     try {
+      // Only fetch slots if this mentor is assigned to the startup
+      if (!startupId) return;
+
+      // Check if mentor is assigned to this startup
+      const { data: assignment, error: assignmentError } = await supabase
+        .from('assignments')
+        .select('id')
+        .eq('startup_id', startupId)
+        .eq('mentor_id', mentorId)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (assignmentError) {
+        console.error('Error checking assignment:', assignmentError);
+        return;
+      }
+
+      if (!assignment) {
+        console.log('Mentor not assigned to this startup');
+        setAvailableSlots([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('time_slots')
         .select(`
@@ -169,6 +192,34 @@ const StartupMentorChat: React.FC = () => {
       toast({
         title: "Error",
         description: "Startup profile not found. Please refresh the page and try again.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Verify the mentor is assigned to this startup
+    const { data: assignment, error: assignmentError } = await supabase
+      .from('assignments')
+      .select('id')
+      .eq('startup_id', startupId)
+      .eq('mentor_id', mentorId)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (assignmentError) {
+      console.error('Error checking assignment:', assignmentError);
+      toast({
+        title: "Error",
+        description: "Failed to verify mentor assignment. Please try again.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!assignment) {
+      toast({
+        title: "Access Denied",
+        description: "This mentor is not assigned to your startup.",
         variant: "destructive"
       });
       return;
@@ -362,9 +413,9 @@ const StartupMentorChat: React.FC = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Connect with Mentors</CardTitle>
+        <CardTitle>Connect with Assigned Mentors</CardTitle>
         <CardDescription>
-          Choose a mentor category and start a conversation
+          Chat and book sessions with mentors assigned to your startup
         </CardDescription>
       </CardHeader>
       <CardContent>
