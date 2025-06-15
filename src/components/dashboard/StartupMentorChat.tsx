@@ -78,8 +78,6 @@ const StartupMentorChat: React.FC = () => {
 
   const fetchMentorSlots = async (mentorId: string) => {
     try {
-      console.log('Fetching slots for mentor:', mentorId);
-
       const { data, error } = await supabase
         .from('time_slots')
         .select(`
@@ -117,7 +115,6 @@ const StartupMentorChat: React.FC = () => {
           : slot.mentors?.profiles?.username || 'Unknown Mentor'
       })) || [];
 
-      console.log('Formatted slots:', formattedSlots);
       setAvailableSlots(formattedSlots);
     } catch (error) {
       console.error('Error fetching mentor slots:', error);
@@ -175,37 +172,6 @@ const StartupMentorChat: React.FC = () => {
         variant: "destructive"
       });
       return;
-    }
-
-    // For experts, skip assignment check since they're available to all
-    // For coaches and founder_mentors, verify assignment
-    if (mentorType !== 'expert') {
-      const { data: assignment, error: assignmentError } = await supabase
-        .from('assignments')
-        .select('id')
-        .eq('startup_id', startupId)
-        .eq('mentor_id', mentorId)
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (assignmentError) {
-        console.error('Error checking assignment:', assignmentError);
-        toast({
-          title: "Error",
-          description: "Failed to verify mentor assignment. Please try again.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      if (!assignment) {
-        toast({
-          title: "Access Denied",
-          description: "This mentor is not assigned to your startup.",
-          variant: "destructive"
-        });
-        return;
-      }
     }
 
     console.log('Selected mentor:', mentorId, 'type:', mentorType);
@@ -398,7 +364,7 @@ const StartupMentorChat: React.FC = () => {
       <CardHeader>
         <CardTitle>Connect with Mentors</CardTitle>
         <CardDescription>
-          Chat and book sessions with your assigned mentors and available experts
+          Choose a mentor category and start a conversation
         </CardDescription>
       </CardHeader>
       <CardContent>

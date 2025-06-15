@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -53,35 +54,22 @@ const MentorDashboard = () => {
   const fetchMentorData = async () => {
     try {
       setLoading(true);
-      console.log('Fetching mentor data for profile:', profile?.id);
 
       // Get mentor info
-      const { data: mentor, error: mentorError } = await supabase
+      const { data: mentor } = await supabase
         .from('mentors')
         .select('id')
         .eq('profile_id', profile?.id)
-        .maybeSingle();
-
-      console.log('Mentor query result:', mentor);
-      console.log('Mentor error:', mentorError);
-
-      if (mentorError) {
-        console.error('Error fetching mentor:', mentorError);
-        setLoading(false);
-        return;
-      }
+        .single();
 
       if (!mentor) {
-        console.log('No mentor found for this profile');
         setLoading(false);
         return;
       }
 
-      console.log('Found mentor with ID:', mentor.id);
-
-      // Fetch assigned startups through assignments table
-      const { data: assignmentsData, error: assignmentsError } = await supabase
-        .from('assignments')
+      // Fetch assigned startups this mentor has worked with
+      const { data: appointmentsData } = await supabase
+        .from('appointments')
         .select(`
           startups!inner(
             id,
@@ -91,28 +79,23 @@ const MentorDashboard = () => {
             stage
           )
         `)
-        .eq('mentor_id', mentor.id)
-        .eq('is_active', true);
+        .eq('mentor_id', mentor.id);
 
-      console.log('Assignments query result:', assignmentsData);
-      console.log('Assignments error:', assignmentsError);
-
-      if (assignmentsError) {
-        console.error('Error fetching assignments:', assignmentsError);
-      } else if (assignmentsData) {
-        const formattedStartups: Startup[] = assignmentsData.map((assignment: any) => {
-          console.log('Processing assignment:', assignment);
-          return {
-            id: assignment.startups.id,
-            name: assignment.startups.startup_name,
-            description: assignment.startups.description || 'No description available',
-            industry: assignment.startups.industry,
-            stage: assignment.startups.stage,
-            logoUrl: '/placeholder.svg'
-          };
+      const uniqueStartups = new Map();
+      if (appointmentsData) {
+        appointmentsData.forEach((apt: any) => {
+          if (apt.startups && !uniqueStartups.has(apt.startups.id)) {
+            uniqueStartups.set(apt.startups.id, {
+              id: apt.startups.id,
+              name: apt.startups.startup_name,
+              description: apt.startups.description || 'No description available',
+              industry: apt.startups.industry,
+              stage: apt.startups.stage,
+              logoUrl: '/placeholder.svg'
+            });
+          }
         });
-        console.log('Formatted assigned startups:', formattedStartups);
-        setAssignedStartups(formattedStartups);
+        setAssignedStartups(Array.from(uniqueStartups.values()));
       }
 
       // Fetch all startups for cohort view
@@ -189,7 +172,7 @@ const MentorDashboard = () => {
 
       setStats({
         totalSessions: totalSessions || 0,
-        startupsCount: assignmentsData?.length || 0
+        startupsCount: uniqueStartups.size || 0
       });
 
     } catch (error) {
@@ -352,7 +335,7 @@ const MentorDashboard = () => {
             <p className="text-sm text-muted-foreground">
               {showCohort 
                 ? 'All startups in the current cohort' 
-                : 'Startups assigned to you for mentoring'
+                : 'Startups you have mentored or are currently mentoring'
               }
             </p>
           </div>

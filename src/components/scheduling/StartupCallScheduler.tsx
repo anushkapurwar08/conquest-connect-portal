@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Calendar } from '@/components/ui/calendar';
 import { Clock, User, Calendar as CalendarIcon, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
@@ -33,59 +34,20 @@ const StartupCallScheduler: React.FC = () => {
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
   const [upcomingCalls, setUpcomingCalls] = useState<UpcomingCall[]>([]);
   const [loading, setLoading] = useState(false);
-  const [startupId, setStartupId] = useState<string | null>(null);
   const { profile, user } = useAuth();
   const { canBookSlot, isWithinBookingWindow, loading: rulesLoading } = useSchedulingRules();
 
   useEffect(() => {
     if (profile) {
-      fetchStartupData();
+      fetchAvailableSlots();
     }
+    fetchUpcomingCalls();
   }, [profile]);
 
-  const fetchStartupData = async () => {
-    try {
-      const { data: startup } = await supabase
-        .from('startups')
-        .select('id')
-        .eq('profile_id', profile?.id)
-        .single();
-      
-      if (startup) {
-        setStartupId(startup.id);
-        fetchAvailableSlots(startup.id);
-        fetchUpcomingCalls(startup.id);
-      }
-    } catch (error) {
-      console.error('Error fetching startup data:', error);
-    }
-  };
-
-  const fetchAvailableSlots = async (startupId: string) => {
+  const fetchAvailableSlots = async () => {
     try {
       setLoading(true);
       
-      // First get assigned mentor IDs for this startup
-      const { data: assignments, error: assignmentsError } = await supabase
-        .from('assignments')
-        .select('mentor_id')
-        .eq('startup_id', startupId)
-        .eq('is_active', true);
-
-      if (assignmentsError) {
-        console.error('Error fetching assignments:', assignmentsError);
-        return;
-      }
-
-      if (!assignments || assignments.length === 0) {
-        console.log('No assigned mentors found');
-        setAvailableSlots([]);
-        return;
-      }
-
-      const assignedMentorIds = assignments.map(a => a.mentor_id);
-      
-      // Fetch slots only for assigned mentors
       const { data: slotsData, error } = await supabase
         .from('time_slots')
         .select(`
@@ -104,7 +66,6 @@ const StartupCallScheduler: React.FC = () => {
             )
           )
         `)
-        .in('mentor_id', assignedMentorIds)
         .eq('status', 'available')
         .gte('start_time', new Date().toISOString())
         .order('start_time', { ascending: true });
@@ -147,8 +108,16 @@ const StartupCallScheduler: React.FC = () => {
     }
   };
 
-  const fetchUpcomingCalls = async (startupId: string) => {
+  const fetchUpcomingCalls = async () => {
     try {
+      const { data: startup } = await supabase
+        .from('startups')
+        .select('id')
+        .eq('profile_id', profile?.id)
+        .single();
+      
+      if (!startup) return;
+
       const { data: callsData, error } = await supabase
         .from('appointments')
         .select(`
@@ -164,7 +133,7 @@ const StartupCallScheduler: React.FC = () => {
             )
           )
         `)
-        .eq('startup_id', startupId)
+        .eq('startup_id', startup.id)
         .eq('status', 'scheduled')
         .gte('scheduled_at', new Date().toISOString())
         .order('scheduled_at', { ascending: true });
@@ -206,7 +175,13 @@ const StartupCallScheduler: React.FC = () => {
         return;
       }
 
-      if (!startupId) {
+      const { data: startup } = await supabase
+        .from('startups')
+        .select('id')
+        .eq('profile_id', profile?.id)
+        .single();
+
+      if (!startup) {
         toast({
           title: "Error",
           description: "Startup profile not found.",
@@ -218,7 +193,7 @@ const StartupCallScheduler: React.FC = () => {
       const { error } = await supabase
         .from('appointments')
         .insert({
-          startup_id: startupId,
+          startup_id: startup.id,
           mentor_id: slot.mentor_id,
           time_slot_id: slot.id,
           scheduled_at: slot.start_time,
@@ -233,10 +208,8 @@ const StartupCallScheduler: React.FC = () => {
         description: `Your call with ${slot.mentor_name} has been scheduled successfully.`,
       });
 
-      if (startupId) {
-        fetchUpcomingCalls(startupId);
-        fetchAvailableSlots(startupId);
-      }
+      fetchUpcomingCalls();
+      fetchAvailableSlots();
     } catch (error) {
       console.error('Error scheduling call:', error);
       toast({
@@ -289,7 +262,7 @@ const StartupCallScheduler: React.FC = () => {
         <h3 className="text-lg font-semibold mb-3 text-orange-600">{typeLabels[mentorType]}</h3>
         {slots.length === 0 ? (
           <p className="text-muted-foreground text-center py-4 border rounded-lg">
-            No available slots for assigned {typeLabels[mentorType].toLowerCase()}
+            No available slots for {typeLabels[mentorType].toLowerCase()}
           </p>
         ) : (
           <div className="space-y-2">
@@ -327,18 +300,6 @@ const StartupCallScheduler: React.FC = () => {
     );
   }
 
-  if (!startupId) {
-    return (
-      <Card>
-        <CardContent className="p-6 text-center">
-          <p className="text-muted-foreground">
-            No startup profile found. Please ensure your account is properly set up.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
   const groupedSlots = groupSlotsByMentorType(availableSlots);
 
   return (
@@ -360,22 +321,9 @@ const StartupCallScheduler: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {availableSlots.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">
-                    No available slots from your assigned mentors
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Contact your team to get assigned to mentors
-                  </p>
-                </div>
-              ) : (
-                <>
-                  {renderMentorTypeSlots('coach', groupedSlots.coach)}
-                  {renderMentorTypeSlots('founder_mentor', groupedSlots.founder_mentor)}
-                  {renderMentorTypeSlots('expert', groupedSlots.expert)}
-                </>
-              )}
+              {renderMentorTypeSlots('coach', groupedSlots.coach)}
+              {renderMentorTypeSlots('founder_mentor', groupedSlots.founder_mentor)}
+              {renderMentorTypeSlots('expert', groupedSlots.expert)}
             </div>
           )}
         </CardContent>

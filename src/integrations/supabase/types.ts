@@ -79,61 +79,6 @@ export type Database = {
           },
         ]
       }
-      assignments: {
-        Row: {
-          assigned_at: string | null
-          assigned_by: string | null
-          created_at: string | null
-          id: string
-          is_active: boolean | null
-          mentor_id: string
-          notes: string | null
-          startup_id: string
-        }
-        Insert: {
-          assigned_at?: string | null
-          assigned_by?: string | null
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          mentor_id: string
-          notes?: string | null
-          startup_id: string
-        }
-        Update: {
-          assigned_at?: string | null
-          assigned_by?: string | null
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          mentor_id?: string
-          notes?: string | null
-          startup_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "assignments_assigned_by_fkey"
-            columns: ["assigned_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "assignments_mentor_id_fkey"
-            columns: ["mentor_id"]
-            isOneToOne: false
-            referencedRelation: "mentors"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "assignments_startup_id_fkey"
-            columns: ["startup_id"]
-            isOneToOne: false
-            referencedRelation: "startups"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       auth_credentials: {
         Row: {
           created_at: string | null
