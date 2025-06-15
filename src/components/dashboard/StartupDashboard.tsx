@@ -25,11 +25,11 @@ const StartupDashboard = () => {
       </div>
 
       {/* Main Dashboard Tabs */}
-      <Tabs defaultValue="chat" className="w-full">
+      <Tabs defaultValue="mentors" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="chat" className="flex items-center space-x-2">
+          <TabsTrigger value="mentors" className="flex items-center space-x-2">
             <MessageSquare className="h-4 w-4" />
-            <span>Chat</span>
+            <span>Mentors</span>
           </TabsTrigger>
           <TabsTrigger value="sessions" className="flex items-center space-x-2">
             <Calendar className="h-4 w-4" />
@@ -45,7 +45,7 @@ const StartupDashboard = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="chat" className="mt-6">
+        <TabsContent value="mentors" className="mt-6">
           <StartupMentorChat />
         </TabsContent>
 

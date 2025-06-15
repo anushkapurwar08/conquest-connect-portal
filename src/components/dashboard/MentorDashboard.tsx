@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Calendar, Users, MessageSquare, Clock, BookOpen, Phone, Building } from 'lucide-react';
 import StartupProfile from '@/components/startup/StartupProfile';
 import CallScheduler from '@/components/scheduling/CallScheduler';
-import MentorChatDashboard from './MentorChatDashboard';
+import SimpleChatFollowUp from './SimpleChatFollowUp';
 import SharedMentorNotes from './SharedMentorNotes';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -217,7 +217,7 @@ const MentorDashboard = () => {
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
           <TabsTrigger value="startups">Startups</TabsTrigger>
           <TabsTrigger value="notes">Shared Notes</TabsTrigger>
-          <TabsTrigger value="chat">Chat</TabsTrigger>
+          <TabsTrigger value="follow-up">Chat</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -380,8 +380,8 @@ const MentorDashboard = () => {
           <SharedMentorNotes />
         </TabsContent>
 
-        <TabsContent value="chat">
-          <MentorChatDashboard />
+        <TabsContent value="follow-up">
+          <SimpleChatFollowUp userRole="mentor" />
         </TabsContent>
       </Tabs>
     </div>
