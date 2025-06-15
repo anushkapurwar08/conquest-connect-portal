@@ -66,7 +66,7 @@ const MentorCategoryTabs: React.FC<MentorCategoryTabsProps> = ({
 
       setStartupId(startup.id);
 
-      // Fetch assigned mentors for this startup
+      // Fetch assigned mentors for this startup through assignments table
       const { data: assignments, error: assignmentsError } = await supabase
         .from('assignments')
         .select(`

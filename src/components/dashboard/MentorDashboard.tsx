@@ -67,9 +67,9 @@ const MentorDashboard = () => {
         return;
       }
 
-      // Fetch assigned startups this mentor has worked with
-      const { data: appointmentsData } = await supabase
-        .from('appointments')
+      // Fetch assigned startups through assignments table
+      const { data: assignmentsData } = await supabase
+        .from('assignments')
         .select(`
           startups!inner(
             id,
@@ -79,23 +79,19 @@ const MentorDashboard = () => {
             stage
           )
         `)
-        .eq('mentor_id', mentor.id);
+        .eq('mentor_id', mentor.id)
+        .eq('is_active', true);
 
-      const uniqueStartups = new Map();
-      if (appointmentsData) {
-        appointmentsData.forEach((apt: any) => {
-          if (apt.startups && !uniqueStartups.has(apt.startups.id)) {
-            uniqueStartups.set(apt.startups.id, {
-              id: apt.startups.id,
-              name: apt.startups.startup_name,
-              description: apt.startups.description || 'No description available',
-              industry: apt.startups.industry,
-              stage: apt.startups.stage,
-              logoUrl: '/placeholder.svg'
-            });
-          }
-        });
-        setAssignedStartups(Array.from(uniqueStartups.values()));
+      if (assignmentsData) {
+        const formattedStartups: Startup[] = assignmentsData.map((assignment: any) => ({
+          id: assignment.startups.id,
+          name: assignment.startups.startup_name,
+          description: assignment.startups.description || 'No description available',
+          industry: assignment.startups.industry,
+          stage: assignment.startups.stage,
+          logoUrl: '/placeholder.svg'
+        }));
+        setAssignedStartups(formattedStartups);
       }
 
       // Fetch all startups for cohort view
@@ -172,7 +168,7 @@ const MentorDashboard = () => {
 
       setStats({
         totalSessions: totalSessions || 0,
-        startupsCount: uniqueStartups.size || 0
+        startupsCount: assignmentsData?.length || 0
       });
 
     } catch (error) {
@@ -335,7 +331,7 @@ const MentorDashboard = () => {
             <p className="text-sm text-muted-foreground">
               {showCohort 
                 ? 'All startups in the current cohort' 
-                : 'Startups you have mentored or are currently mentoring'
+                : 'Startups assigned to you for mentoring'
               }
             </p>
           </div>
