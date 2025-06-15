@@ -54,6 +54,59 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
   
   const { isMentorTypeVisible, loading: rulesLoading } = useSchedulingRules();
 
+  // Helper functions - moved to top to avoid hoisting issues
+  const getCategoryTitle = () => {
+    switch (mentorType) {
+      case 'founder_mentor':
+        return 'Founder Mentors';
+      case 'expert':
+        return 'Industry Experts';
+      case 'coach':
+        return 'Executive Coaches';
+      default:
+        return 'Mentors';
+    }
+  };
+
+  const getCategoryDescription = () => {
+    switch (mentorType) {
+      case 'founder_mentor':
+        return 'Experienced founders who have built and scaled companies';
+      case 'expert':
+        return 'Subject matter experts with deep domain knowledge';
+      case 'coach':
+        return 'Professional coaches focused on leadership and personal development';
+      default:
+        return 'Professional mentors';
+    }
+  };
+
+  const getTypeSpecific = (type: string): string => {
+    switch (type) {
+      case 'founder_mentor':
+        return 'Serial Entrepreneur';
+      case 'expert':
+        return 'Industry Expert';
+      case 'coach':
+        return 'Executive Coach';
+      default:
+        return 'Mentor';
+    }
+  };
+
+  const getAvailability = (type: string): string => {
+    switch (type) {
+      case 'founder_mentor':
+        return 'Limited slots';
+      case 'expert':
+        return 'Available this week';
+      case 'coach':
+        return 'Recurring sessions';
+      default:
+        return 'Available';
+    }
+  };
+
   useEffect(() => {
     fetchMentors();
   }, [mentorType]);
@@ -188,58 +241,6 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
         description: "Failed to select mentor. Please try again.",
         variant: "destructive"
       });
-    }
-  };
-
-  const getTypeSpecific = (type: string): string => {
-    switch (type) {
-      case 'founder_mentor':
-        return 'Serial Entrepreneur';
-      case 'expert':
-        return 'Industry Expert';
-      case 'coach':
-        return 'Executive Coach';
-      default:
-        return 'Mentor';
-    }
-  };
-
-  const getAvailability = (type: string): string => {
-    switch (type) {
-      case 'founder_mentor':
-        return 'Limited slots';
-      case 'expert':
-        return 'Available this week';
-      case 'coach':
-        return 'Recurring sessions';
-      default:
-        return 'Available';
-    }
-  };
-
-  const getCategoryTitle = () => {
-    switch (mentorType) {
-      case 'founder_mentor':
-        return 'Founder Mentors';
-      case 'expert':
-        return 'Industry Experts';
-      case 'coach':
-        return 'Executive Coaches';
-      default:
-        return 'Mentors';
-    }
-  };
-
-  const getCategoryDescription = () => {
-    switch (mentorType) {
-      case 'founder_mentor':
-        return 'Experienced founders who have built and scaled companies';
-      case 'expert':
-        return 'Subject matter experts with deep domain knowledge';
-      case 'coach':
-        return 'Professional coaches focused on leadership and personal development';
-      default:
-        return 'Professional mentors';
     }
   };
 
