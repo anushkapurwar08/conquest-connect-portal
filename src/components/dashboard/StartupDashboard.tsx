@@ -3,8 +3,10 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { MessageSquare, Calendar, Users, TrendingUp } from 'lucide-react';
+import { MessageSquare, Calendar, MapPin, TrendingUp } from 'lucide-react';
 import StartupMentorChat from './StartupMentorChat';
+import ViewPods from './ViewPods';
+import CallScheduler from '@/components/scheduling/CallScheduler';
 import { useAuth } from '@/hooks/useAuth';
 
 const StartupDashboard = () => {
@@ -33,9 +35,9 @@ const StartupDashboard = () => {
             <Calendar className="h-4 w-4" />
             <span>Sessions</span>
           </TabsTrigger>
-          <TabsTrigger value="community" className="flex items-center space-x-2">
-            <Users className="h-4 w-4" />
-            <span>Community</span>
+          <TabsTrigger value="pods" className="flex items-center space-x-2">
+            <MapPin className="h-4 w-4" />
+            <span>View Pods</span>
           </TabsTrigger>
           <TabsTrigger value="progress" className="flex items-center space-x-2">
             <TrendingUp className="h-4 w-4" />
@@ -48,35 +50,11 @@ const StartupDashboard = () => {
         </TabsContent>
 
         <TabsContent value="sessions" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Upcoming Sessions</CardTitle>
-              <CardDescription>Your scheduled mentoring sessions</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No upcoming sessions scheduled</p>
-                <p className="text-sm">Connect with a mentor to schedule your first session</p>
-              </div>
-            </CardContent>
-          </Card>
+          <CallScheduler userRole="startup" />
         </TabsContent>
 
-        <TabsContent value="community" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Startup Community</CardTitle>
-              <CardDescription>Connect with other startups and entrepreneurs</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Community features coming soon</p>
-                <p className="text-sm">Join discussions and network with fellow entrepreneurs</p>
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="pods" className="mt-6">
+          <ViewPods />
         </TabsContent>
 
         <TabsContent value="progress" className="mt-6">

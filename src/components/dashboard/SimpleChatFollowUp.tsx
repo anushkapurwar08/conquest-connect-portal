@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { MessageSquare, Send, Calendar, Clock, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { useProfileChat } from '@/hooks/useProfileChat';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SimpleChatFollowUpProps {
   conversationId?: string;
@@ -15,6 +15,17 @@ interface SimpleChatFollowUpProps {
   userRole?: string;
   mentorId?: string;
   startupId?: string;
+}
+
+interface Message {
+  id: string;
+  content: string;
+  sender_profile_id: string;
+  receiver_profile_id: string;
+  message_type: string;
+  follow_up_date?: string;
+  follow_up_time?: string;
+  created_at: string;
 }
 
 const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({ 
@@ -25,10 +36,11 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
   startupId
 }) => {
   const { profile } = useAuth();
-  const { messages, loading, sendMessage } = useProfileChat(conversationId || '');
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [followUpTime, setFollowUpTime] = useState('');
+  const [loading, setLoading] = useState(true);
 
   console.log('SimpleChatFollowUp: Initializing with props:', { 
     conversationId,
@@ -38,6 +50,72 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
     startupId,
     profile: !!profile 
   });
+
+  useEffect(() => {
+    if (conversationId) {
+      fetchMessages();
+      subscribeToMessages();
+    }
+  }, [conversationId]);
+
+  const fetchMessages = async () => {
+    if (!conversationId) return;
+
+    try {
+      console.log('Fetching messages for conversation:', conversationId);
+      
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching messages:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load messages. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      console.log('Fetched messages:', data);
+      setMessages(data || []);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const subscribeToMessages = () => {
+    if (!conversationId) return;
+
+    console.log('Subscribing to messages for conversation:', conversationId);
+
+    const channel = supabase
+      .channel(`conversation-${conversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`
+        },
+        (payload) => {
+          console.log('New message received:', payload);
+          setMessages(current => [...current, payload.new as Message]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('Unsubscribing from messages');
+      supabase.removeChannel(channel);
+    };
+  };
 
   const handleSendMessage = async () => {
     console.log('SimpleChatFollowUp: Attempting to send message:', {
@@ -55,7 +133,7 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
       return;
     }
 
-    if (!conversationId || !otherProfileId) {
+    if (!conversationId || !profile?.id) {
       console.error('SimpleChatFollowUp: Cannot send message - missing required IDs');
       toast({
         title: "Missing Information",
@@ -65,9 +143,41 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
       return;
     }
 
-    console.log('SimpleChatFollowUp: Sending message via useProfileChat hook');
-    await sendMessage(newMessage);
-    setNewMessage('');
+    try {
+      const messageData = {
+        conversation_id: conversationId,
+        sender_profile_id: profile.id,
+        receiver_profile_id: otherProfileId,
+        content: newMessage.trim(),
+        message_type: 'message'
+      };
+
+      console.log('Sending message with data:', messageData);
+
+      const { error } = await supabase
+        .from('messages')
+        .insert(messageData);
+
+      if (error) {
+        console.error('Error sending message:', error);
+        toast({
+          title: "Error",
+          description: "Failed to send message. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setNewMessage('');
+      console.log('Message sent successfully');
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while sending the message.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleScheduleFollowUp = async () => {
@@ -86,16 +196,57 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
       return;
     }
 
-    const content = `Follow-up call scheduled for ${followUpDate} at ${followUpTime}`;
-    await sendMessage(content, 'follow_up_call', followUpDate, followUpTime);
-    
-    setFollowUpDate('');
-    setFollowUpTime('');
-    
-    toast({
-      title: "Follow-up Scheduled",
-      description: "Follow-up call has been scheduled successfully.",
-    });
+    if (!conversationId || !profile?.id) {
+      toast({
+        title: "Error",
+        description: "Conversation information is required.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const content = `Follow-up call scheduled for ${followUpDate} at ${followUpTime}`;
+      
+      const messageData = {
+        conversation_id: conversationId,
+        sender_profile_id: profile.id,
+        receiver_profile_id: otherProfileId,
+        content,
+        message_type: 'follow_up_call',
+        follow_up_date: followUpDate,
+        follow_up_time: followUpTime
+      };
+
+      const { error } = await supabase
+        .from('messages')
+        .insert(messageData);
+
+      if (error) {
+        console.error('Error scheduling follow-up:', error);
+        toast({
+          title: "Error",
+          description: "Failed to schedule follow-up. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setFollowUpDate('');
+      setFollowUpTime('');
+      
+      toast({
+        title: "Follow-up Scheduled",
+        description: "Follow-up call has been scheduled successfully.",
+      });
+    } catch (error) {
+      console.error('Error scheduling follow-up:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while scheduling the follow-up.",
+        variant: "destructive"
+      });
+    }
   };
 
   if (!conversationId || !otherProfileId) {
@@ -109,15 +260,6 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
             <p className="text-muted-foreground mb-4">
               Missing required information to start chatting.
             </p>
-            <div className="space-y-2 text-sm text-gray-600">
-              <p><strong>Debug Info:</strong></p>
-              <p>Conversation ID: {conversationId || 'missing'}</p>
-              <p>Other Profile ID: {otherProfileId || 'missing'}</p>
-              <p>Current Profile ID: {profile?.id || 'missing'}</p>
-              <p>User Role: {userRole || 'not specified'}</p>
-              <p>Mentor ID: {mentorId || 'not specified'}</p>
-              <p>Startup ID: {startupId || 'not specified'}</p>
-            </div>
           </CardContent>
         </Card>
       </div>

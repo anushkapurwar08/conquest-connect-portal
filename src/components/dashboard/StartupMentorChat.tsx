@@ -2,17 +2,30 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { AlertCircle, Calendar, Clock, User } from 'lucide-react';
 import MentorCategoryTabs from '@/components/mentor/MentorCategoryTabs';
 import SimpleChatFollowUp from './SimpleChatFollowUp';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
+interface AvailableSlot {
+  id: string;
+  start_time: string;
+  end_time: string;
+  mentor_id: string;
+  mentor_name: string;
+  mentor_type: string;
+}
+
 const StartupMentorChat: React.FC = () => {
   const { profile } = useAuth();
   const [selectedMentor, setSelectedMentor] = useState<{ id: string; type: string } | null>(null);
   const [startupId, setStartupId] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [showSlots, setShowSlots] = useState(false);
+  const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,11 +54,6 @@ const StartupMentorChat: React.FC = () => {
       if (error) {
         console.error('Error fetching startup:', error);
         setError(`Database error: ${error.message}`);
-        toast({
-          title: "Error",
-          description: "Failed to load startup profile. Please try again.",
-          variant: "destructive"
-        });
         setLoading(false);
         return;
       }
@@ -53,11 +61,6 @@ const StartupMentorChat: React.FC = () => {
       if (!startup) {
         console.log('No startup record found for profile:', profile.id);
         setError('No startup record found. Please ensure your account is set up with startup information.');
-        toast({
-          title: "Startup Profile Not Found",
-          description: "Your account is not set up with startup information. Please complete your startup profile first.",
-          variant: "destructive"
-        });
         setLoading(false);
         return;
       }
@@ -73,6 +76,94 @@ const StartupMentorChat: React.FC = () => {
     }
   };
 
+  const fetchMentorSlots = async (mentorId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('time_slots')
+        .select(`
+          id,
+          start_time,
+          end_time,
+          mentor_id,
+          mentors!inner(
+            mentor_type,
+            profiles!inner(
+              first_name,
+              last_name,
+              username
+            )
+          )
+        `)
+        .eq('mentor_id', mentorId)
+        .eq('status', 'available')
+        .gte('start_time', new Date().toISOString())
+        .order('start_time', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching mentor slots:', error);
+        return;
+      }
+
+      const formattedSlots: AvailableSlot[] = data?.map((slot: any) => ({
+        id: slot.id,
+        start_time: slot.start_time,
+        end_time: slot.end_time,
+        mentor_id: slot.mentor_id,
+        mentor_type: slot.mentors?.mentor_type || 'expert',
+        mentor_name: slot.mentors?.profiles?.first_name && slot.mentors?.profiles?.last_name
+          ? `${slot.mentors.profiles.first_name} ${slot.mentors.profiles.last_name}`
+          : slot.mentors?.profiles?.username || 'Unknown Mentor'
+      })) || [];
+
+      setAvailableSlots(formattedSlots);
+    } catch (error) {
+      console.error('Error fetching mentor slots:', error);
+    }
+  };
+
+  const createOrGetConversation = async (mentorId: string) => {
+    if (!startupId) return null;
+
+    try {
+      // Check if conversation already exists
+      const { data: existingConversation, error: fetchError } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('startup_id', startupId)
+        .eq('mentor_id', mentorId)
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error('Error fetching conversation:', fetchError);
+        return null;
+      }
+
+      if (existingConversation) {
+        return existingConversation.id;
+      }
+
+      // Create new conversation
+      const { data: newConversation, error: createError } = await supabase
+        .from('conversations')
+        .insert({
+          startup_id: startupId,
+          mentor_id: mentorId
+        })
+        .select('id')
+        .single();
+
+      if (createError) {
+        console.error('Error creating conversation:', createError);
+        return null;
+      }
+
+      return newConversation.id;
+    } catch (error) {
+      console.error('Error managing conversation:', error);
+      return null;
+    }
+  };
+
   const handleSelectMentor = async (mentorId: string, mentorType: 'founder_mentor' | 'expert' | 'coach') => {
     if (!startupId) {
       toast({
@@ -85,40 +176,63 @@ const StartupMentorChat: React.FC = () => {
 
     console.log('Selected mentor:', mentorId, 'type:', mentorType);
     
-    // Verify mentor exists and has proper profile linkage
-    try {
-      const { data: mentor, error } = await supabase
-        .from('mentors')
-        .select(`
-          id,
-          mentor_type,
-          profile_id,
-          profiles!inner(
-            first_name,
-            last_name,
-            username
-          )
-        `)
-        .eq('id', mentorId)
-        .maybeSingle();
-
-      if (error || !mentor) {
-        console.error('Error verifying mentor:', error);
-        toast({
-          title: "Error",
-          description: "Selected mentor is not available. Please try another mentor.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      console.log('Verified mentor:', mentor);
-      setSelectedMentor({ id: mentorId, type: mentorType });
-    } catch (error) {
-      console.error('Error verifying mentor:', error);
+    // Get or create conversation
+    const convId = await createOrGetConversation(mentorId);
+    if (!convId) {
       toast({
         title: "Error",
-        description: "Failed to verify mentor. Please try again.",
+        description: "Failed to create conversation. Please try again.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setConversationId(convId);
+    setSelectedMentor({ id: mentorId, type: mentorType });
+    
+    // Fetch available slots for this mentor
+    await fetchMentorSlots(mentorId);
+  };
+
+  const handleBookSlot = async (slotId: string) => {
+    if (!startupId) {
+      toast({
+        title: "Error",
+        description: "Startup profile not found.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const slot = availableSlots.find(s => s.id === slotId);
+      if (!slot) return;
+
+      const { error } = await supabase
+        .from('appointments')
+        .insert({
+          startup_id: startupId,
+          mentor_id: slot.mentor_id,
+          time_slot_id: slotId,
+          scheduled_at: slot.start_time,
+          title: 'Mentoring Session',
+          status: 'scheduled'
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Session Booked",
+        description: `Your session with ${slot.mentor_name} has been scheduled successfully.`,
+      });
+
+      // Refresh slots
+      await fetchMentorSlots(slot.mentor_id);
+    } catch (error) {
+      console.error('Error booking slot:', error);
+      toast({
+        title: "Error",
+        description: "Failed to book session. Please try again.",
         variant: "destructive"
       });
     }
@@ -126,6 +240,9 @@ const StartupMentorChat: React.FC = () => {
 
   const handleBackToMentors = () => {
     setSelectedMentor(null);
+    setConversationId(null);
+    setShowSlots(false);
+    setAvailableSlots([]);
   };
 
   if (loading) {
@@ -151,12 +268,6 @@ const StartupMentorChat: React.FC = () => {
         <CardContent>
           <div className="space-y-4">
             <p className="text-red-600">{error}</p>
-            <div className="space-y-2 text-sm text-gray-600">
-              <p><strong>Debug Info:</strong></p>
-              <p>Profile ID: {profile?.id || 'Not found'}</p>
-              <p>Profile Role: {profile?.role || 'Not found'}</p>
-              <p>Startup ID: {startupId || 'Not found'}</p>
-            </div>
             <Button 
               onClick={() => {
                 setError(null);
@@ -172,7 +283,7 @@ const StartupMentorChat: React.FC = () => {
     );
   }
 
-  if (selectedMentor && startupId) {
+  if (selectedMentor && conversationId && startupId) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -182,8 +293,64 @@ const StartupMentorChat: React.FC = () => {
           >
             ← Back to Mentors
           </button>
+          <div className="flex space-x-2">
+            <Button
+              size="sm"
+              variant={showSlots ? "default" : "outline"}
+              onClick={() => setShowSlots(!showSlots)}
+              className={showSlots ? "bg-orange-500 hover:bg-orange-600" : ""}
+            >
+              {showSlots ? "Hide Slots" : "View Available Slots"}
+            </Button>
+          </div>
         </div>
+
+        {showSlots && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-lg">Available Time Slots</CardTitle>
+              <CardDescription>Book a session with this mentor</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {availableSlots.length === 0 ? (
+                <p className="text-muted-foreground text-center py-4">
+                  No available slots at the moment
+                </p>
+              ) : (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {availableSlots.map((slot) => (
+                    <div key={slot.id} className="border rounded-lg p-4 space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="h-4 w-4 text-orange-500" />
+                        <span className="text-sm font-medium">
+                          {new Date(slot.start_time).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Clock className="h-4 w-4 text-orange-500" />
+                        <span className="text-sm">
+                          {new Date(slot.start_time).toLocaleTimeString()} - 
+                          {new Date(slot.end_time).toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => handleBookSlot(slot.id)}
+                        className="w-full bg-orange-500 hover:bg-orange-600"
+                      >
+                        Book This Slot
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         <SimpleChatFollowUp
+          conversationId={conversationId}
+          otherProfileId={selectedMentor.id}
           userRole="startup"
           mentorId={selectedMentor.id}
           startupId={startupId}
