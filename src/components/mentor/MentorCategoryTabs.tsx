@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +23,11 @@ interface Mentor {
   specializations: string[];
 }
 
+interface MentorToggle {
+  mentor_type: 'founder_mentor' | 'expert' | 'coach';
+  is_visible: boolean;
+}
+
 interface MentorCategoryTabsProps {
   onSelectMentor: (mentorId: string, mentorType: 'founder_mentor' | 'expert' | 'coach') => void;
   selectedMentorId?: string;
@@ -31,21 +37,23 @@ const MentorCategoryTabs: React.FC<MentorCategoryTabsProps> = ({
   onSelectMentor, 
   selectedMentorId 
 }) => {
-  const [mentors, setMentors] = useState<Mentor[]>([]);
+  const [assignedMentors, setAssignedMentors] = useState<Mentor[]>([]);
+  const [allExperts, setAllExperts] = useState<Mentor[]>([]);
+  const [mentorToggles, setMentorToggles] = useState<MentorToggle[]>([]);
   const [loading, setLoading] = useState(true);
   const [startupId, setStartupId] = useState<string | null>(null);
   const { profile } = useAuth();
 
   useEffect(() => {
     if (profile?.id) {
-      fetchStartupAndMentors();
+      fetchMentorData();
     }
   }, [profile?.id]);
 
-  const fetchStartupAndMentors = async () => {
+  const fetchMentorData = async () => {
     try {
       setLoading(true);
-      console.log('Fetching startup and mentors for profile:', profile?.id);
+      console.log('Fetching mentor data for profile:', profile?.id);
 
       // First get the startup ID for the current user
       const { data: startup, error: startupError } = await supabase
@@ -67,7 +75,19 @@ const MentorCategoryTabs: React.FC<MentorCategoryTabsProps> = ({
       console.log('Found startup:', startup);
       setStartupId(startup.id);
 
-      // Fetch assigned mentors for this startup through assignments table
+      // Fetch mentor toggles to check visibility
+      const { data: toggles, error: togglesError } = await supabase
+        .from('mentor_toggles')
+        .select('mentor_type, is_visible');
+
+      if (togglesError) {
+        console.error('Error fetching mentor toggles:', togglesError);
+      } else {
+        console.log('Mentor toggles:', toggles);
+        setMentorToggles(toggles || []);
+      }
+
+      // Fetch assigned mentors (coaches and founder_mentors only)
       const { data: assignments, error: assignmentsError } = await supabase
         .from('assignments')
         .select(`
@@ -87,10 +107,10 @@ const MentorCategoryTabs: React.FC<MentorCategoryTabsProps> = ({
           )
         `)
         .eq('startup_id', startup.id)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .in('mentors.mentor_type', ['coach', 'founder_mentor']);
 
       console.log('Assignments query result:', assignments);
-      console.log('Assignments error:', assignmentsError);
 
       if (assignmentsError) {
         console.error('Error fetching assignments:', assignmentsError);
@@ -99,25 +119,58 @@ const MentorCategoryTabs: React.FC<MentorCategoryTabsProps> = ({
           description: "Failed to fetch your assigned mentors.",
           variant: "destructive"
         });
-        return;
-      }
-
-      // Transform the data to match our Mentor interface
-      const assignedMentors: Mentor[] = assignments?.map((assignment: any) => {
-        console.log('Processing assignment:', assignment);
-        return {
+      } else {
+        // Transform assigned mentors data
+        const processedAssignedMentors: Mentor[] = assignments?.map((assignment: any) => ({
           id: assignment.mentors.id,
           mentor_type: assignment.mentors.mentor_type,
           years_experience: assignment.mentors.years_experience,
           specializations: assignment.mentors.specializations || [],
           profiles: assignment.mentors.profiles
-        };
-      }) || [];
+        })) || [];
 
-      console.log('Processed mentors:', assignedMentors);
-      setMentors(assignedMentors);
+        console.log('Processed assigned mentors:', processedAssignedMentors);
+        setAssignedMentors(processedAssignedMentors);
+      }
+
+      // Fetch ALL experts (not through assignments)
+      const { data: experts, error: expertsError } = await supabase
+        .from('mentors')
+        .select(`
+          id,
+          mentor_type,
+          years_experience,
+          specializations,
+          profiles!inner(
+            first_name,
+            last_name,
+            username,
+            bio,
+            expertise
+          )
+        `)
+        .eq('mentor_type', 'expert');
+
+      console.log('Experts query result:', experts);
+
+      if (expertsError) {
+        console.error('Error fetching experts:', expertsError);
+      } else {
+        // Transform experts data
+        const processedExperts: Mentor[] = experts?.map((expert: any) => ({
+          id: expert.id,
+          mentor_type: expert.mentor_type,
+          years_experience: expert.years_experience,
+          specializations: expert.specializations || [],
+          profiles: expert.profiles
+        })) || [];
+
+        console.log('Processed experts:', processedExperts);
+        setAllExperts(processedExperts);
+      }
+
     } catch (error) {
-      console.error('Error fetching mentors:', error);
+      console.error('Error fetching mentor data:', error);
       toast({
         title: "Error",
         description: "Failed to fetch mentors. Please try again.",
@@ -128,8 +181,18 @@ const MentorCategoryTabs: React.FC<MentorCategoryTabsProps> = ({
     }
   };
 
+  const isMentorTypeVisible = (mentorType: string) => {
+    const toggle = mentorToggles.find(t => t.mentor_type === mentorType);
+    const isVisible = toggle?.is_visible ?? true;
+    console.log(`Mentor type ${mentorType} visibility:`, isVisible);
+    return isVisible;
+  };
+
   const getMentorsByType = (type: string) => {
-    return mentors.filter(mentor => mentor.mentor_type === type);
+    if (type === 'expert') {
+      return allExperts;
+    }
+    return assignedMentors.filter(mentor => mentor.mentor_type === type);
   };
 
   const renderMentorCard = (mentor: Mentor) => {
@@ -207,7 +270,10 @@ const MentorCategoryTabs: React.FC<MentorCategoryTabsProps> = ({
         {typeMentors.length === 0 ? (
           <Card className="p-6 text-center">
             <p className="text-muted-foreground">
-              No {title.toLowerCase()} assigned to your startup yet.
+              {mentorType === 'expert' 
+                ? 'No experts available at the moment.'
+                : `No ${title.toLowerCase()} assigned to your startup yet.`
+              }
             </p>
           </Card>
         ) : (
@@ -223,7 +289,7 @@ const MentorCategoryTabs: React.FC<MentorCategoryTabsProps> = ({
     return (
       <div className="text-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
-        <p className="mt-2 text-sm text-muted-foreground">Loading your assigned mentors...</p>
+        <p className="mt-2 text-sm text-muted-foreground">Loading mentors...</p>
       </div>
     );
   }
@@ -238,58 +304,47 @@ const MentorCategoryTabs: React.FC<MentorCategoryTabsProps> = ({
     );
   }
 
+  // Filter visible tabs based on mentor toggles
+  const visibleTabs = [
+    { value: 'coaches', type: 'coach', title: 'Coaches', icon: Briefcase, description: 'Personal development and leadership coaching' },
+    { value: 'founders', type: 'founder_mentor', title: 'Founder Mentors', icon: Users, description: 'Experienced founders who have built successful startups' },
+    { value: 'experts', type: 'expert', title: 'Experts', icon: Star, description: 'Domain experts in specific fields and technologies' }
+  ].filter(tab => isMentorTypeVisible(tab.type));
+
+  if (visibleTabs.length === 0) {
+    return (
+      <Card className="p-6 text-center">
+        <p className="text-muted-foreground">
+          No mentor categories are currently available.
+        </p>
+      </Card>
+    );
+  }
+
   return (
-    <Tabs defaultValue="coaches" className="w-full">
-      <TabsList className="grid w-full grid-cols-3">
-        <TabsTrigger value="coaches" className="flex items-center space-x-1">
-          <Briefcase className="h-4 w-4" />
-          <span>Coaches</span>
-          <Badge variant="secondary" className="ml-1">
-            {getMentorsByType('coach').length}
-          </Badge>
-        </TabsTrigger>
-        <TabsTrigger value="founders" className="flex items-center space-x-1">
-          <Users className="h-4 w-4" />
-          <span>Founder Mentors</span>
-          <Badge variant="secondary" className="ml-1">
-            {getMentorsByType('founder_mentor').length}
-          </Badge>
-        </TabsTrigger>
-        <TabsTrigger value="experts" className="flex items-center space-x-1">
-          <Star className="h-4 w-4" />
-          <span>Experts</span>
-          <Badge variant="secondary" className="ml-1">
-            {getMentorsByType('expert').length}
-          </Badge>
-        </TabsTrigger>
+    <Tabs defaultValue={visibleTabs[0]?.value} className="w-full">
+      <TabsList className={`grid w-full grid-cols-${visibleTabs.length}`}>
+        {visibleTabs.map(tab => (
+          <TabsTrigger key={tab.value} value={tab.value} className="flex items-center space-x-1">
+            <tab.icon className="h-4 w-4" />
+            <span>{tab.title}</span>
+            <Badge variant="secondary" className="ml-1">
+              {getMentorsByType(tab.type).length}
+            </Badge>
+          </TabsTrigger>
+        ))}
       </TabsList>
 
-      <TabsContent value="coaches" className="mt-6">
-        {renderMentorSection(
-          "Coaches", 
-          <Briefcase className="h-5 w-5 text-orange-500" />,
-          "coach",
-          "Personal development and leadership coaching"
-        )}
-      </TabsContent>
-
-      <TabsContent value="founders" className="mt-6">
-        {renderMentorSection(
-          "Founder Mentors", 
-          <Users className="h-5 w-5 text-orange-500" />,
-          "founder_mentor",
-          "Experienced founders who have built successful startups"
-        )}
-      </TabsContent>
-
-      <TabsContent value="experts" className="mt-6">
-        {renderMentorSection(
-          "Experts", 
-          <Star className="h-5 w-5 text-orange-500" />,
-          "expert",
-          "Domain experts in specific fields and technologies"
-        )}
-      </TabsContent>
+      {visibleTabs.map(tab => (
+        <TabsContent key={tab.value} value={tab.value} className="mt-6">
+          {renderMentorSection(
+            tab.title,
+            <tab.icon className="h-5 w-5 text-orange-500" />,
+            tab.type,
+            tab.description
+          )}
+        </TabsContent>
+      ))}
     </Tabs>
   );
 };

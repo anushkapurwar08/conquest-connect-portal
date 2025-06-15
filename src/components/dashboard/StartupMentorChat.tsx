@@ -78,28 +78,7 @@ const StartupMentorChat: React.FC = () => {
 
   const fetchMentorSlots = async (mentorId: string) => {
     try {
-      // Only fetch slots if this mentor is assigned to the startup
-      if (!startupId) return;
-
-      // Check if mentor is assigned to this startup
-      const { data: assignment, error: assignmentError } = await supabase
-        .from('assignments')
-        .select('id')
-        .eq('startup_id', startupId)
-        .eq('mentor_id', mentorId)
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (assignmentError) {
-        console.error('Error checking assignment:', assignmentError);
-        return;
-      }
-
-      if (!assignment) {
-        console.log('Mentor not assigned to this startup');
-        setAvailableSlots([]);
-        return;
-      }
+      console.log('Fetching slots for mentor:', mentorId);
 
       const { data, error } = await supabase
         .from('time_slots')
@@ -138,6 +117,7 @@ const StartupMentorChat: React.FC = () => {
           : slot.mentors?.profiles?.username || 'Unknown Mentor'
       })) || [];
 
+      console.log('Formatted slots:', formattedSlots);
       setAvailableSlots(formattedSlots);
     } catch (error) {
       console.error('Error fetching mentor slots:', error);
@@ -197,32 +177,35 @@ const StartupMentorChat: React.FC = () => {
       return;
     }
 
-    // Verify the mentor is assigned to this startup
-    const { data: assignment, error: assignmentError } = await supabase
-      .from('assignments')
-      .select('id')
-      .eq('startup_id', startupId)
-      .eq('mentor_id', mentorId)
-      .eq('is_active', true)
-      .maybeSingle();
+    // For experts, skip assignment check since they're available to all
+    // For coaches and founder_mentors, verify assignment
+    if (mentorType !== 'expert') {
+      const { data: assignment, error: assignmentError } = await supabase
+        .from('assignments')
+        .select('id')
+        .eq('startup_id', startupId)
+        .eq('mentor_id', mentorId)
+        .eq('is_active', true)
+        .maybeSingle();
 
-    if (assignmentError) {
-      console.error('Error checking assignment:', assignmentError);
-      toast({
-        title: "Error",
-        description: "Failed to verify mentor assignment. Please try again.",
-        variant: "destructive"
-      });
-      return;
-    }
+      if (assignmentError) {
+        console.error('Error checking assignment:', assignmentError);
+        toast({
+          title: "Error",
+          description: "Failed to verify mentor assignment. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
 
-    if (!assignment) {
-      toast({
-        title: "Access Denied",
-        description: "This mentor is not assigned to your startup.",
-        variant: "destructive"
-      });
-      return;
+      if (!assignment) {
+        toast({
+          title: "Access Denied",
+          description: "This mentor is not assigned to your startup.",
+          variant: "destructive"
+        });
+        return;
+      }
     }
 
     console.log('Selected mentor:', mentorId, 'type:', mentorType);
@@ -413,9 +396,9 @@ const StartupMentorChat: React.FC = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Connect with Assigned Mentors</CardTitle>
+        <CardTitle>Connect with Mentors</CardTitle>
         <CardDescription>
-          Chat and book sessions with mentors assigned to your startup
+          Chat and book sessions with your assigned mentors and available experts
         </CardDescription>
       </CardHeader>
       <CardContent>
