@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { MessageSquare, Calendar, MapPin, TrendingUp } from 'lucide-react';
-import StartupMentorChat from './StartupMentorChat';
+import SimplifiedChat from '@/components/chat/SimplifiedChat';
 import ViewPods from './ViewPods';
 import CallScheduler from '@/components/scheduling/CallScheduler';
 import { useAuth } from '@/hooks/useAuth';
@@ -25,11 +25,11 @@ const StartupDashboard = () => {
       </div>
 
       {/* Main Dashboard Tabs */}
-      <Tabs defaultValue="mentors" className="w-full">
+      <Tabs defaultValue="chat" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="mentors" className="flex items-center space-x-2">
+          <TabsTrigger value="chat" className="flex items-center space-x-2">
             <MessageSquare className="h-4 w-4" />
-            <span>Mentors</span>
+            <span>Chat</span>
           </TabsTrigger>
           <TabsTrigger value="sessions" className="flex items-center space-x-2">
             <Calendar className="h-4 w-4" />
@@ -45,8 +45,8 @@ const StartupDashboard = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="mentors" className="mt-6">
-          <StartupMentorChat />
+        <TabsContent value="chat" className="mt-6">
+          <SimplifiedChat />
         </TabsContent>
 
         <TabsContent value="sessions" className="mt-6">
