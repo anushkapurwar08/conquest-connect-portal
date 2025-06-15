@@ -386,6 +386,95 @@ export type Database = {
           },
         ]
       }
+      pod_attendees: {
+        Row: {
+          id: string
+          joined_at: string
+          pod_id: string
+          startup_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          pod_id: string
+          startup_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          pod_id?: string
+          startup_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pod_attendees_pod_id_fkey"
+            columns: ["pod_id"]
+            isOneToOne: false
+            referencedRelation: "pods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pod_attendees_startup_id_fkey"
+            columns: ["startup_id"]
+            isOneToOne: false
+            referencedRelation: "startups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pods: {
+        Row: {
+          capacity: number
+          created_at: string
+          current_attendees: number
+          date: string
+          description: string | null
+          id: string
+          is_active: boolean
+          location: string
+          mentor_id: string | null
+          name: string
+          time: string
+          updated_at: string
+        }
+        Insert: {
+          capacity?: number
+          created_at?: string
+          current_attendees?: number
+          date: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          location: string
+          mentor_id?: string | null
+          name: string
+          time: string
+          updated_at?: string
+        }
+        Update: {
+          capacity?: number
+          created_at?: string
+          current_attendees?: number
+          date?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          location?: string
+          mentor_id?: string | null
+          name?: string
+          time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pods_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "mentors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           bio: string | null

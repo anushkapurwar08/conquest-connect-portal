@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Clock, User, MapPin, Calendar, ExternalLink } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Pod {
   id: string;
@@ -24,6 +25,7 @@ interface Pod {
 const ViewPods: React.FC = () => {
   const [pods, setPods] = useState<Pod[]>([]);
   const [loading, setLoading] = useState(true);
+  const { profile } = useAuth();
 
   useEffect(() => {
     fetchPods();
@@ -96,9 +98,66 @@ const ViewPods: React.FC = () => {
   };
 
   const handleJoinPod = async (podId: string) => {
+    if (!profile) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to join a pod.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
-      // Here you would implement the logic to join a pod
-      // This might involve creating a pod_attendees record
+      // First, get the startup record for the current user
+      const { data: startupData, error: startupError } = await supabase
+        .from('startups')
+        .select('id')
+        .eq('profile_id', profile.id)
+        .single();
+
+      if (startupError || !startupData) {
+        toast({
+          title: "Error",
+          description: "Could not find your startup profile. Please contact support.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Check if already joined
+      const { data: existingAttendee } = await supabase
+        .from('pod_attendees')
+        .select('id')
+        .eq('pod_id', podId)
+        .eq('startup_id', startupData.id)
+        .single();
+
+      if (existingAttendee) {
+        toast({
+          title: "Already Joined",
+          description: "You have already joined this pod!",
+        });
+        return;
+      }
+
+      // Join the pod
+      const { error: joinError } = await supabase
+        .from('pod_attendees')
+        .insert({
+          pod_id: podId,
+          startup_id: startupData.id
+        });
+
+      if (joinError) {
+        console.error('Error joining pod:', joinError);
+        toast({
+          title: "Error",
+          description: "Failed to join pod. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+
       toast({
         title: "Pod Joined",
         description: "You have successfully joined the pod!",
