@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { MessageSquare, Calendar, MapPin, TrendingUp } from 'lucide-react';
 import StartupMentorChat from './StartupMentorChat';
 import ViewPods from './ViewPods';
-import CallScheduler from '@/components/scheduling/CallScheduler';
+import StartupCallScheduler from '@/components/scheduling/StartupCallScheduler';
 import { useAuth } from '@/hooks/useAuth';
 
 const StartupDashboard = () => {
@@ -50,7 +50,7 @@ const StartupDashboard = () => {
         </TabsContent>
 
         <TabsContent value="sessions" className="mt-6">
-          <CallScheduler userRole="startup" />
+          <StartupCallScheduler />
         </TabsContent>
 
         <TabsContent value="pods" className="mt-6">
