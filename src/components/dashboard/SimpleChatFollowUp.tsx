@@ -115,7 +115,7 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
 
       const { data: messagesData, error } = await supabase
         .from('messages')
-        .select('*')
+        .select('id, content, created_at, sender_profile_id, receiver_profile_id, message_type, follow_up_date, follow_up_time')
         .eq('conversation_id', currentConversationId)
         .order('created_at', { ascending: true });
 
@@ -181,7 +181,7 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
       const { data, error } = await supabase
         .from('messages')
         .insert(messageData)
-        .select()
+        .select('id, content, created_at, sender_profile_id, receiver_profile_id, message_type, follow_up_date, follow_up_time')
         .single();
 
       if (error) {
