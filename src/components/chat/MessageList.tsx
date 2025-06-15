@@ -31,7 +31,30 @@ const MessageList: React.FC<MessageListProps> = ({ onSelectConversation }) => {
   useEffect(() => {
     if (profile?.id) {
       fetchReceivedMessages();
-      setupRealtimeSubscription();
+      
+      // Setup realtime subscription with proper cleanup
+      const channel = supabase
+        .channel(`messages_channel_${profile.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `receiver_profile_id=eq.${profile.id}`
+          },
+          () => {
+            console.log('MessageList: New message received, refreshing list');
+            fetchReceivedMessages();
+          }
+        )
+        .subscribe();
+
+      // Cleanup function
+      return () => {
+        console.log('MessageList: Cleaning up realtime subscription');
+        supabase.removeChannel(channel);
+      };
     }
   }, [profile?.id]);
 
@@ -107,31 +130,6 @@ const MessageList: React.FC<MessageListProps> = ({ onSelectConversation }) => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const setupRealtimeSubscription = () => {
-    if (!profile?.id) return;
-
-    const channel = supabase
-      .channel('messages_channel')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `receiver_profile_id=eq.${profile.id}`
-        },
-        () => {
-          console.log('MessageList: New message received, refreshing list');
-          fetchReceivedMessages();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   };
 
   const formatTime = (timestamp: string) => {

@@ -52,7 +52,36 @@ const DirectChat: React.FC<DirectChatProps> = ({ otherUser, onBack }) => {
   useEffect(() => {
     if (profile?.id && otherUser.id) {
       fetchMessages();
-      setupRealtimeSubscription();
+      
+      // Setup realtime subscription with proper cleanup
+      const channel = supabase
+        .channel(`direct_chat_${profile.id}_${otherUser.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages'
+          },
+          (payload) => {
+            const newMessage = payload.new as Message;
+            // Only add messages that are part of this conversation
+            if (
+              (newMessage.sender_profile_id === profile.id && newMessage.receiver_profile_id === otherUser.id) ||
+              (newMessage.sender_profile_id === otherUser.id && newMessage.receiver_profile_id === profile.id)
+            ) {
+              console.log('DirectChat: New message received in real-time:', newMessage);
+              setMessages(prev => [...prev, newMessage]);
+            }
+          }
+        )
+        .subscribe();
+
+      // Cleanup function
+      return () => {
+        console.log('DirectChat: Cleaning up realtime subscription');
+        supabase.removeChannel(channel);
+      };
     }
   }, [profile?.id, otherUser.id]);
 
@@ -98,37 +127,6 @@ const DirectChat: React.FC<DirectChatProps> = ({ otherUser, onBack }) => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const setupRealtimeSubscription = () => {
-    if (!profile?.id) return;
-
-    const channel = supabase
-      .channel('direct_chat_channel')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages'
-        },
-        (payload) => {
-          const newMessage = payload.new as Message;
-          // Only add messages that are part of this conversation
-          if (
-            (newMessage.sender_profile_id === profile.id && newMessage.receiver_profile_id === otherUser.id) ||
-            (newMessage.sender_profile_id === otherUser.id && newMessage.receiver_profile_id === profile.id)
-          ) {
-            console.log('DirectChat: New message received in real-time:', newMessage);
-            setMessages(prev => [...prev, newMessage]);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   };
 
   const sendMessage = async (content: string, messageType: string = 'message', followUpDate?: string, followUpTime?: string) => {
