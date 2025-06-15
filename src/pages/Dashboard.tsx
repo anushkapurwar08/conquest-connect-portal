@@ -104,7 +104,7 @@ const Dashboard = () => {
         {profile.role === 'startup' && <StartupDashboard />}
         {profile.role === 'mentor' && <MentorDashboard />}
         {profile.role === 'team' && <div className="text-center py-8">
-            <p className="text-muted-foreground">Team dashboard has been removed. Please contact support if you need access.</p>
+            <p className="text-muted-foreground">Team dashboard will use the same chat interface. Please use the chat tab for messaging.</p>
           </div>}
       </main>
     </div>;

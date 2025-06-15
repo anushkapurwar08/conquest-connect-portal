@@ -1,128 +1,58 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Calendar, Users, MessageSquare, Clock, BookOpen, Phone, Building } from 'lucide-react';
-import StartupProfile from '@/components/startup/StartupProfile';
-import CallScheduler from '@/components/scheduling/CallScheduler';
-import SimpleChatFollowUp from './SimpleChatFollowUp';
-import SharedMentorNotes from './SharedMentorNotes';
+import { Badge } from '@/components/ui/badge';
+import { MessageSquare, Calendar, Users, TrendingUp, Clock, CheckCircle } from 'lucide-react';
+import ChatInterface from '@/components/chat/ChatInterface';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
 
-interface Startup {
+interface UpcomingSession {
   id: string;
-  name: string;
-  description: string;
-  logoUrl?: string;
-  industry?: string;
-  stage?: string;
-}
-
-interface Session {
-  startup: string;
-  date: string;
-  time: string;
-  type: 'call' | 'note';
+  title: string;
+  scheduled_at: string;
+  startup_name: string;
+  status: string;
 }
 
 const MentorDashboard = () => {
-  const [selectedStartup, setSelectedStartup] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('overview');
-  const [assignedStartups, setAssignedStartups] = useState<Startup[]>([]);
-  const [allStartups, setAllStartups] = useState<Startup[]>([]);
-  const [upcomingSessions, setUpcomingSessions] = useState<Session[]>([]);
-  const [recentActivity, setRecentActivity] = useState<Session[]>([]);
+  const { profile } = useAuth();
+  const [upcomingSessions, setUpcomingSessions] = useState<UpcomingSession[]>([]);
   const [stats, setStats] = useState({
     totalSessions: 0,
-    startupsCount: 0
+    activeStartups: 0,
+    thisWeekSessions: 0
   });
-  const [loading, setLoading] = useState(true);
-  const [showCohort, setShowCohort] = useState(false);
-  const { profile } = useAuth();
 
   useEffect(() => {
-    if (profile) {
+    if (profile?.id) {
       fetchMentorData();
     }
-  }, [profile]);
+  }, [profile?.id]);
 
   const fetchMentorData = async () => {
     try {
-      setLoading(true);
-
-      // Get mentor info
+      // Get mentor ID
       const { data: mentor } = await supabase
         .from('mentors')
         .select('id')
         .eq('profile_id', profile?.id)
         .single();
 
-      if (!mentor) {
-        setLoading(false);
-        return;
-      }
+      if (!mentor) return;
 
-      // Fetch assigned startups this mentor has worked with
-      const { data: appointmentsData } = await supabase
+      // Fetch upcoming sessions
+      const { data: sessions } = await supabase
         .from('appointments')
         .select(`
-          startups!inner(
-            id,
-            startup_name,
-            description,
-            industry,
-            stage
-          )
-        `)
-        .eq('mentor_id', mentor.id);
-
-      const uniqueStartups = new Map();
-      if (appointmentsData) {
-        appointmentsData.forEach((apt: any) => {
-          if (apt.startups && !uniqueStartups.has(apt.startups.id)) {
-            uniqueStartups.set(apt.startups.id, {
-              id: apt.startups.id,
-              name: apt.startups.startup_name,
-              description: apt.startups.description || 'No description available',
-              industry: apt.startups.industry,
-              stage: apt.startups.stage,
-              logoUrl: '/placeholder.svg'
-            });
-          }
-        });
-        setAssignedStartups(Array.from(uniqueStartups.values()));
-      }
-
-      // Fetch all startups for cohort view
-      const { data: allStartupsData } = await supabase
-        .from('startups')
-        .select('id, startup_name, description, industry, stage');
-
-      if (allStartupsData) {
-        const formattedStartups: Startup[] = allStartupsData.map((startup: any) => ({
-          id: startup.id,
-          name: startup.startup_name,
-          description: startup.description || 'No description available',
-          industry: startup.industry,
-          stage: startup.stage,
-          logoUrl: '/placeholder.svg'
-        }));
-        setAllStartups(formattedStartups);
-      }
-
-      // Fetch upcoming sessions with real-time data
-      const { data: upcomingData } = await supabase
-        .from('appointments')
-        .select(`
-          scheduled_at,
+          id,
           title,
+          scheduled_at,
           status,
-          startups!inner(startup_name)
+          startups!inner(
+            startup_name
+          )
         `)
         .eq('mentor_id', mentor.id)
         .eq('status', 'scheduled')
@@ -130,37 +60,15 @@ const MentorDashboard = () => {
         .order('scheduled_at', { ascending: true })
         .limit(5);
 
-      if (upcomingData) {
-        const sessions: Session[] = upcomingData.map((session: any) => ({
-          startup: session.startups?.startup_name || 'Unknown Startup',
-          date: new Date(session.scheduled_at).toLocaleDateString(),
-          time: new Date(session.scheduled_at).toLocaleTimeString(),
-          type: 'call' as const
+      if (sessions) {
+        const formattedSessions = sessions.map((session: any) => ({
+          id: session.id,
+          title: session.title,
+          scheduled_at: session.scheduled_at,
+          startup_name: session.startups.startup_name,
+          status: session.status
         }));
-        setUpcomingSessions(sessions);
-      }
-
-      // Fetch recent activity
-      const { data: recentData } = await supabase
-        .from('appointments')
-        .select(`
-          scheduled_at,
-          status,
-          startups!inner(startup_name)
-        `)
-        .eq('mentor_id', mentor.id)
-        .in('status', ['completed', 'cancelled'])
-        .order('scheduled_at', { ascending: false })
-        .limit(5);
-
-      if (recentData) {
-        const activities: Session[] = recentData.map((activity: any) => ({
-          startup: activity.startups?.startup_name || 'Unknown Startup',
-          date: new Date(activity.scheduled_at).toLocaleDateString(),
-          time: new Date(activity.scheduled_at).toLocaleTimeString(),
-          type: 'call' as const
-        }));
-        setRecentActivity(activities);
+        setUpcomingSessions(formattedSessions);
       }
 
       // Calculate stats
@@ -170,230 +78,148 @@ const MentorDashboard = () => {
         .eq('mentor_id', mentor.id)
         .eq('status', 'completed');
 
+      const { data: uniqueStartups } = await supabase
+        .from('appointments')
+        .select('startup_id')
+        .eq('mentor_id', mentor.id)
+        .eq('status', 'completed');
+
+      // This week sessions
+      const weekStart = new Date();
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 7);
+
+      const { count: thisWeekSessions } = await supabase
+        .from('appointments')
+        .select('*', { count: 'exact', head: true })
+        .eq('mentor_id', mentor.id)
+        .gte('scheduled_at', weekStart.toISOString())
+        .lte('scheduled_at', weekEnd.toISOString());
+
+      const uniqueStartupCount = new Set(uniqueStartups?.map(s => s.startup_id)).size;
+
       setStats({
         totalSessions: totalSessions || 0,
-        startupsCount: uniqueStartups.size || 0
+        activeStartups: uniqueStartupCount,
+        thisWeekSessions: thisWeekSessions || 0
       });
 
     } catch (error) {
       console.error('Error fetching mentor data:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
-  if (selectedStartup) {
-    return (
-      <StartupProfile 
-        startupId={selectedStartup} 
-        onClose={() => setSelectedStartup(null)}
-      />
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-orange-600">Mentor Dashboard</h1>
-          <p className="text-muted-foreground">Guide startups to success</p>
-        </div>
-        <Badge className="bg-orange-100 text-orange-800 border-orange-200">
-          Active Mentor
-        </Badge>
+      {/* Welcome Section */}
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">
+          Welcome back, {profile?.first_name || profile?.username}!
+        </h1>
+        <p className="text-gray-600 mt-2">
+          Your mentoring dashboard
+        </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="schedule">Schedule</TabsTrigger>
-          <TabsTrigger value="startups">Startups</TabsTrigger>
-          <TabsTrigger value="community">Community</TabsTrigger>
-          <TabsTrigger value="follow-up">Chat</TabsTrigger>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Sessions</CardTitle>
+            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalSessions}</div>
+            <p className="text-xs text-muted-foreground">
+              Completed mentoring sessions
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Startups</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.activeStartups}</div>
+            <p className="text-xs text-muted-foreground">
+              Startups you've mentored
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">This Week</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.thisWeekSessions}</div>
+            <p className="text-xs text-muted-foreground">
+              Sessions scheduled
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Dashboard Tabs */}
+      <Tabs defaultValue="sessions" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="sessions" className="flex items-center space-x-2">
+            <Calendar className="h-4 w-4" />
+            <span>Sessions</span>
+          </TabsTrigger>
+          <TabsTrigger value="chat" className="flex items-center space-x-2">
+            <MessageSquare className="h-4 w-4" />
+            <span>Chat</span>
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-6">
-          {/* Quick Stats */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Mentoring Sessions</CardTitle>
-                <Users className="h-4 w-4 text-orange-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalSessions}</div>
-                <p className="text-xs text-muted-foreground">Completed sessions</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Assigned Startups</CardTitle>
-                <BookOpen className="h-4 w-4 text-orange-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.startupsCount}</div>
-                <p className="text-xs text-muted-foreground">Active startups</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Recent Activity and Upcoming Sessions */}
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2 text-orange-600">
-                  <MessageSquare className="h-5 w-5" />
-                  <span>Recent Activity</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {recentActivity.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-4">
-                    No recent activity
-                  </p>
-                ) : (
-                  <ul className="space-y-4">
-                    {recentActivity.map((activity, index) => (
-                      <li key={index} className="border-b pb-2 last:border-none">
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm font-medium">{activity.startup}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {activity.date} {activity.time}
-                          </div>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          {activity.type === 'call' ? 'Mentoring call' : 'Note shared'}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2 text-orange-600">
-                  <Calendar className="h-5 w-5" />
-                  <span>Upcoming Sessions</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {upcomingSessions.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-4">
-                    No upcoming sessions
-                  </p>
-                ) : (
-                  <ul className="space-y-4">
-                    {upcomingSessions.map((session, index) => (
-                      <li key={index} className="border-b pb-2 last:border-none">
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm font-medium">{session.startup}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {session.date} {session.time}
-                          </div>
-                        </div>
-                        <p className="text-sm text-muted-foreground">Mentoring session</p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="schedule">
-          <CallScheduler userRole="mentor" />
-        </TabsContent>
-
-        <TabsContent value="startups" className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold">Startups</h3>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowCohort(!showCohort)}
-              className="border-orange-500 text-orange-600 hover:bg-orange-50"
-            >
-              {showCohort ? 'View My Assigned Startups' : 'View All Cohort Startups'}
-            </Button>
-          </div>
-
-          {/* Section Headers */}
-          <div className="mb-4">
-            <h4 className="text-md font-medium text-orange-600">
-              {showCohort ? 'All Cohort Startups' : 'My Assigned Startups'}
-            </h4>
-            <p className="text-sm text-muted-foreground">
-              {showCohort 
-                ? 'All startups in the current cohort' 
-                : 'Startups you have mentored or are currently mentoring'
-              }
-            </p>
-          </div>
-
-          {(showCohort ? allStartups : assignedStartups).length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-8">
-                <p className="text-muted-foreground">
-                  {showCohort ? 'No startups in cohort' : 'No assigned startups yet'}
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-6 md:grid-cols-3">
-              {(showCohort ? allStartups : assignedStartups).map((startup) => (
-                <Card key={startup.id} className="hover:bg-accent cursor-pointer" onClick={() => setSelectedStartup(startup.id)}>
-                  <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback>{startup.name.charAt(0)}</AvatarFallback>
-                        <AvatarImage src={startup.logoUrl} />
-                      </Avatar>
-                      <span>{startup.name}</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground mb-2">{startup.description}</p>
-                    {startup.industry && (
-                      <Badge variant="secondary" className="mr-1 mb-1">{startup.industry}</Badge>
-                    )}
-                    {startup.stage && (
-                      <Badge variant="outline">{startup.stage}</Badge>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="community">
+        <TabsContent value="sessions" className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Startup Community</CardTitle>
-              <CardDescription>Connect with other startups and entrepreneurs</CardDescription>
+              <CardTitle>Upcoming Sessions</CardTitle>
+              <CardDescription>Your scheduled mentoring sessions</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Community features coming soon</p>
-                <p className="text-sm">Join discussions and network with fellow entrepreneurs</p>
-              </div>
+              {upcomingSessions.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No upcoming sessions scheduled</p>
+                  <p className="text-sm">Your sessions will appear here when startups book time with you</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {upcomingSessions.map((session) => {
+                    const sessionDate = new Date(session.scheduled_at);
+                    
+                    return (
+                      <div key={session.id} className="border rounded-lg p-4 hover:bg-accent">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-medium">{session.title}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              with {session.startup_name}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {sessionDate.toLocaleDateString()} at {sessionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                          <Badge>{session.status}</Badge>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="follow-up">
-          <SimpleChatFollowUp />
+        <TabsContent value="chat" className="mt-6">
+          <ChatInterface />
         </TabsContent>
       </Tabs>
     </div>

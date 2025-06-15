@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { MessageSquare, Calendar, Users, TrendingUp } from 'lucide-react';
 import StartupMentorChat from './StartupMentorChat';
-import MentorChatList from './MentorChatList';
+import ChatInterface from '@/components/chat/ChatInterface';
 import MentorSlotBooking from '@/components/mentor/MentorSlotBooking';
 import PodView from '@/components/pod/PodView';
 import { useAuth } from '@/hooks/useAuth';
@@ -132,7 +132,7 @@ const StartupDashboard = () => {
           </TabsTrigger>
           <TabsTrigger value="startups" className="flex items-center space-x-2">
             <Users className="h-4 w-4" />
-            <span>Startups</span>
+            <span>Sessions</span>
           </TabsTrigger>
           <TabsTrigger value="community" className="flex items-center space-x-2">
             <Users className="h-4 w-4" />
@@ -198,7 +198,7 @@ const StartupDashboard = () => {
         </TabsContent>
 
         <TabsContent value="chat" className="mt-6">
-          <MentorChatList />
+          <ChatInterface />
         </TabsContent>
       </Tabs>
     </div>
