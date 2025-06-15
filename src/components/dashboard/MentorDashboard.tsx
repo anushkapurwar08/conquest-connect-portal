@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Calendar, Users, MessageSquare, Clock, BookOpen, Phone, Building } from 'lucide-react';
 import StartupProfile from '@/components/startup/StartupProfile';
 import CallScheduler from '@/components/scheduling/CallScheduler';
-import SimpleChatFollowUp from './SimpleChatFollowUp';
+import SimplifiedChat from '@/components/chat/SimplifiedChat';
 import SharedMentorNotes from './SharedMentorNotes';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -381,7 +380,7 @@ const MentorDashboard = () => {
         </TabsContent>
 
         <TabsContent value="follow-up">
-          <SimpleChatFollowUp userRole="mentor" />
+          <SimplifiedChat />
         </TabsContent>
       </Tabs>
     </div>

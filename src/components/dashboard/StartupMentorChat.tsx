@@ -3,9 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, Calendar, Clock, User } from 'lucide-react';
+import { AlertCircle, Calendar, Clock } from 'lucide-react';
 import MentorCategoryTabs from '@/components/mentor/MentorCategoryTabs';
-import SimpleChatFollowUp from './SimpleChatFollowUp';
+import DirectChat from '@/components/chat/DirectChat';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -21,9 +21,8 @@ interface AvailableSlot {
 
 const StartupMentorChat: React.FC = () => {
   const { profile } = useAuth();
-  const [selectedMentor, setSelectedMentor] = useState<{ id: string; type: string } | null>(null);
+  const [selectedMentor, setSelectedMentor] = useState<{ id: string; type: string; name: string } | null>(null);
   const [startupId, setStartupId] = useState<string | null>(null);
-  const [conversationId, setConversationId] = useState<string | null>(null);
   const [showSlots, setShowSlots] = useState(false);
   const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -121,46 +120,33 @@ const StartupMentorChat: React.FC = () => {
     }
   };
 
-  const createOrGetConversation = async (mentorId: string) => {
-    if (!startupId) return null;
-
+  const fetchMentorName = async (mentorId: string) => {
     try {
-      // Check if conversation already exists
-      const { data: existingConversation, error: fetchError } = await supabase
-        .from('conversations')
-        .select('id')
-        .eq('startup_id', startupId)
-        .eq('mentor_id', mentorId)
-        .maybeSingle();
-
-      if (fetchError) {
-        console.error('Error fetching conversation:', fetchError);
-        return null;
-      }
-
-      if (existingConversation) {
-        return existingConversation.id;
-      }
-
-      // Create new conversation
-      const { data: newConversation, error: createError } = await supabase
-        .from('conversations')
-        .insert({
-          startup_id: startupId,
-          mentor_id: mentorId
-        })
-        .select('id')
+      const { data, error } = await supabase
+        .from('mentors')
+        .select(`
+          profiles!inner(
+            first_name,
+            last_name,
+            username
+          )
+        `)
+        .eq('id', mentorId)
         .single();
 
-      if (createError) {
-        console.error('Error creating conversation:', createError);
-        return null;
+      if (error || !data) {
+        console.error('Error fetching mentor name:', error);
+        return 'Unknown Mentor';
       }
 
-      return newConversation.id;
+      const profile = data.profiles;
+      if (profile.first_name && profile.last_name) {
+        return `${profile.first_name} ${profile.last_name}`;
+      }
+      return profile.username;
     } catch (error) {
-      console.error('Error managing conversation:', error);
-      return null;
+      console.error('Error fetching mentor name:', error);
+      return 'Unknown Mentor';
     }
   };
 
@@ -176,19 +162,10 @@ const StartupMentorChat: React.FC = () => {
 
     console.log('Selected mentor:', mentorId, 'type:', mentorType);
     
-    // Get or create conversation
-    const convId = await createOrGetConversation(mentorId);
-    if (!convId) {
-      toast({
-        title: "Error",
-        description: "Failed to create conversation. Please try again.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setConversationId(convId);
-    setSelectedMentor({ id: mentorId, type: mentorType });
+    // Get mentor name
+    const mentorName = await fetchMentorName(mentorId);
+    
+    setSelectedMentor({ id: mentorId, type: mentorType, name: mentorName });
     
     // Fetch available slots for this mentor
     await fetchMentorSlots(mentorId);
@@ -240,7 +217,6 @@ const StartupMentorChat: React.FC = () => {
 
   const handleBackToMentors = () => {
     setSelectedMentor(null);
-    setConversationId(null);
     setShowSlots(false);
     setAvailableSlots([]);
   };
@@ -283,7 +259,7 @@ const StartupMentorChat: React.FC = () => {
     );
   }
 
-  if (selectedMentor && conversationId && startupId) {
+  if (selectedMentor && startupId) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -348,12 +324,9 @@ const StartupMentorChat: React.FC = () => {
           </Card>
         )}
 
-        <SimpleChatFollowUp
-          conversationId={conversationId}
-          otherProfileId={selectedMentor.id}
-          userRole="startup"
-          mentorId={selectedMentor.id}
-          startupId={startupId}
+        <DirectChat
+          otherUserId={selectedMentor.id}
+          otherUserName={selectedMentor.name}
         />
       </div>
     );
