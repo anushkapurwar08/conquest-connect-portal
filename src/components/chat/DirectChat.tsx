@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -77,16 +76,14 @@ const DirectChat: React.FC<DirectChatProps> = ({ otherUserId, otherUserName, onB
           console.log('New message received via realtime:', payload);
           const newMsg = payload.new as Message;
           
-          // Only add message if it's part of this conversation
-          if ((newMsg.sender_profile_id === profile.id && newMsg.receiver_profile_id === otherUserId) ||
-              (newMsg.sender_profile_id === otherUserId && newMsg.receiver_profile_id === profile.id)) {
-            setMessages(current => {
-              // Avoid duplicates
-              if (current.find(msg => msg.id === newMsg.id)) {
-                return current;
-              }
-              return [...current, newMsg];
-            });
+          // Ignore messages sent by the current user, as they are added optimistically
+          if (newMsg.sender_profile_id === profile.id) {
+            return;
+          }
+
+          // Only add message if it's for this conversation (from the other user)
+          if (newMsg.sender_profile_id === otherUserId && newMsg.receiver_profile_id === profile.id) {
+            setMessages(current => [...current, newMsg]);
           }
         }
       )
