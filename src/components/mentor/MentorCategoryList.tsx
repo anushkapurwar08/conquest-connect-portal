@@ -3,9 +3,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Building, AlertCircle } from 'lucide-react';
+import { MessageSquare, Building, AlertCircle, EyeOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { useSchedulingRules } from '@/hooks/useSchedulingRules';
 
 interface MentorData {
   id: string;
@@ -50,10 +51,37 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
   const [mentors, setMentors] = useState<ProcessedMentor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  const { isMentorTypeVisible, loading: rulesLoading } = useSchedulingRules();
 
   useEffect(() => {
     fetchMentors();
   }, [mentorType]);
+
+  // Check if this mentor type is visible to users
+  const isVisible = isMentorTypeVisible(mentorType);
+
+  // If mentor type is not visible, show admin message
+  if (!rulesLoading && !isVisible) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-xl font-semibold">{getCategoryTitle()}</h3>
+          <p className="text-muted-foreground text-sm">{getCategoryDescription()}</p>
+        </div>
+        <div className="text-center py-8">
+          <EyeOff className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">This mentor category is currently unavailable</h3>
+          <p className="text-muted-foreground mb-4">
+            {getCategoryTitle()} are temporarily hidden by administrators.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Please check back later or contact support if you need assistance.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const fetchMentors = async () => {
     try {
