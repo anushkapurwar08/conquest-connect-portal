@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, User, Users, Target } from 'lucide-react';
+import { Calendar, Clock, User } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
@@ -146,13 +146,13 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole }) => {
   const getMentorTypeIcon = (type: string) => {
     switch (type) {
       case 'founder_mentor':
-        return <Users className="h-4 w-4" />;
+        return '👥';
       case 'coach':
-        return <Target className="h-4 w-4" />;
+        return '🎯';
       case 'expert':
-        return <User className="h-4 w-4" />;
+        return '🎓';
       default:
-        return <User className="h-4 w-4" />;
+        return '👤';
     }
   };
 
@@ -169,12 +169,13 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole }) => {
     }
   };
 
-  const groupSlotsByMentorType = () => {
+  const groupSlotsByDate = () => {
     const grouped = slots.reduce((acc, slot) => {
-      if (!acc[slot.mentor_type]) {
-        acc[slot.mentor_type] = [];
+      const date = new Date(slot.start_time).toDateString();
+      if (!acc[date]) {
+        acc[date] = [];
       }
-      acc[slot.mentor_type].push(slot);
+      acc[date].push(slot);
       return acc;
     }, {} as Record<string, TimeSlot[]>);
 
@@ -192,8 +193,8 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole }) => {
     );
   }
 
-  const groupedSlots = groupSlotsByMentorType();
-  const mentorTypes = ['founder_mentor', 'coach', 'expert'] as const;
+  const groupedSlots = groupSlotsByDate();
+  const dates = Object.keys(groupedSlots).sort();
 
   return (
     <div className="space-y-6">
@@ -201,64 +202,56 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole }) => {
         <CardHeader>
           <CardTitle>Available Sessions</CardTitle>
           <CardDescription>
-            Book mentoring sessions organized by mentor type
+            Book mentoring sessions with available mentors
           </CardDescription>
         </CardHeader>
       </Card>
 
-      {mentorTypes.map((mentorType) => {
-        const typeSlots = groupedSlots[mentorType] || [];
-        
-        if (typeSlots.length === 0) {
-          return (
-            <Card key={mentorType}>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  {getMentorTypeIcon(mentorType)}
-                  <span>{getMentorTypeLabel(mentorType)}</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-center py-4">
-                  No available slots for {getMentorTypeLabel(mentorType).toLowerCase()}s
-                </p>
-              </CardContent>
-            </Card>
-          );
-        }
-
-        return (
-          <Card key={mentorType}>
+      {dates.length === 0 ? (
+        <Card>
+          <CardContent className="text-center py-8">
+            <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+            <p className="text-muted-foreground">No available sessions at the moment</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Check back later for new mentor availability
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        dates.map((date) => (
+          <Card key={date}>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-                {getMentorTypeIcon(mentorType)}
-                <span>{getMentorTypeLabel(mentorType)}</span>
-                <Badge variant="secondary">{typeSlots.length} slots</Badge>
+                <Calendar className="h-5 w-5 text-orange-500" />
+                <span>{new Date(date).toLocaleDateString('en-US', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })}</span>
+                <Badge variant="secondary">{groupedSlots[date].length} slots</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {typeSlots.map((slot) => (
+                {groupedSlots[date].map((slot) => (
                   <div key={slot.id} className="border rounded-lg p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <h4 className="font-medium">{slot.mentor_name}</h4>
-                      <Badge variant="outline" className="text-xs">
-                        {getMentorTypeLabel(slot.mentor_type)}
-                      </Badge>
+                      <div className="flex items-center space-x-1">
+                        <span className="text-sm">{getMentorTypeIcon(slot.mentor_type)}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {getMentorTypeLabel(slot.mentor_type)}
+                        </Badge>
+                      </div>
                     </div>
                     
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2 text-sm">
-                        <Calendar className="h-4 w-4 text-orange-500" />
-                        <span>{new Date(slot.start_time).toLocaleDateString()}</span>
-                      </div>
-                      <div className="flex items-center space-x-2 text-sm">
-                        <Clock className="h-4 w-4 text-orange-500" />
-                        <span>
-                          {new Date(slot.start_time).toLocaleTimeString()} - 
-                          {new Date(slot.end_time).toLocaleTimeString()}
-                        </span>
-                      </div>
+                    <div className="flex items-center space-x-2 text-sm">
+                      <Clock className="h-4 w-4 text-orange-500" />
+                      <span>
+                        {new Date(slot.start_time).toLocaleTimeString()} - 
+                        {new Date(slot.end_time).toLocaleTimeString()}
+                      </span>
                     </div>
 
                     {userRole === 'startup' && (
@@ -275,19 +268,7 @@ const CallScheduler: React.FC<CallSchedulerProps> = ({ userRole }) => {
               </div>
             </CardContent>
           </Card>
-        );
-      })}
-
-      {slots.length === 0 && (
-        <Card>
-          <CardContent className="text-center py-8">
-            <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-            <p className="text-muted-foreground">No available sessions at the moment</p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Check back later for new mentor availability
-            </p>
-          </CardContent>
-        </Card>
+        ))
       )}
     </div>
   );

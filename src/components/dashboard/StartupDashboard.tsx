@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { MessageSquare, Calendar, MapPin, TrendingUp } from 'lucide-react';
-import SimplifiedChat from '@/components/chat/SimplifiedChat';
+import StartupMentorChat from './StartupMentorChat';
 import ViewPods from './ViewPods';
 import CallScheduler from '@/components/scheduling/CallScheduler';
 import { useAuth } from '@/hooks/useAuth';
@@ -46,7 +46,7 @@ const StartupDashboard = () => {
         </TabsList>
 
         <TabsContent value="chat" className="mt-6">
-          <SimplifiedChat />
+          <StartupMentorChat />
         </TabsContent>
 
         <TabsContent value="sessions" className="mt-6">
