@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { MessageSquare, Send, Calendar, Clock, User } from 'lucide-react';
+import { MessageSquare, Send, Calendar, Clock, User, ArrowLeft } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -41,6 +41,7 @@ const DirectChat: React.FC<DirectChatProps> = ({ otherUser, onBack }) => {
   const [newMessage, setNewMessage] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [followUpTime, setFollowUpTime] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   console.log('DirectChat: Initializing chat with:', {
     currentUser: profile?.id,
@@ -51,8 +52,17 @@ const DirectChat: React.FC<DirectChatProps> = ({ otherUser, onBack }) => {
   useEffect(() => {
     if (profile?.id && otherUser.id) {
       fetchMessages();
+      setupRealtimeSubscription();
     }
   }, [profile?.id, otherUser.id]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   const fetchMessages = async () => {
     if (!profile?.id) return;
@@ -88,6 +98,37 @@ const DirectChat: React.FC<DirectChatProps> = ({ otherUser, onBack }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const setupRealtimeSubscription = () => {
+    if (!profile?.id) return;
+
+    const channel = supabase
+      .channel('direct_chat_channel')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages'
+        },
+        (payload) => {
+          const newMessage = payload.new as Message;
+          // Only add messages that are part of this conversation
+          if (
+            (newMessage.sender_profile_id === profile.id && newMessage.receiver_profile_id === otherUser.id) ||
+            (newMessage.sender_profile_id === otherUser.id && newMessage.receiver_profile_id === profile.id)
+          ) {
+            console.log('DirectChat: New message received in real-time:', newMessage);
+            setMessages(prev => [...prev, newMessage]);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   };
 
   const sendMessage = async (content: string, messageType: string = 'message', followUpDate?: string, followUpTime?: string) => {
@@ -129,9 +170,6 @@ const DirectChat: React.FC<DirectChatProps> = ({ otherUser, onBack }) => {
       }
 
       console.log('DirectChat: Message sent successfully:', data);
-      
-      // Add the new message to the local state
-      setMessages(prev => [...prev, data]);
       
       toast({
         title: "Message Sent",
@@ -195,8 +233,9 @@ const DirectChat: React.FC<DirectChatProps> = ({ otherUser, onBack }) => {
       {/* Header */}
       <div className="flex items-center justify-between">
         {onBack && (
-          <Button variant="outline" onClick={onBack}>
-            ← Back
+          <Button variant="outline" onClick={onBack} className="flex items-center space-x-2">
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back</span>
           </Button>
         )}
         <div className="flex items-center space-x-2">
@@ -236,35 +275,38 @@ const DirectChat: React.FC<DirectChatProps> = ({ otherUser, onBack }) => {
                 <p>No messages yet. Start the conversation!</p>
               </div>
             ) : (
-              messages.map((message) => {
-                const isCurrentUser = message.sender_profile_id === profile?.id;
-                
-                return (
-                  <div
-                    key={message.id}
-                    className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div className={`max-w-xs p-3 rounded-lg ${
-                      isCurrentUser 
-                        ? 'bg-orange-500 text-white' 
-                        : 'bg-gray-100 text-gray-900'
-                    }`}>
-                      {message.message_type === 'follow_up_call' && (
-                        <div className="flex items-center space-x-1 mb-1">
-                          <Calendar className="h-3 w-3" />
-                          <span className="text-xs font-medium">Follow-up Call</span>
-                        </div>
-                      )}
-                      <p className="text-sm">{message.content}</p>
-                      <p className={`text-xs mt-1 ${
-                        isCurrentUser ? 'text-orange-100' : 'text-gray-500'
+              <>
+                {messages.map((message) => {
+                  const isCurrentUser = message.sender_profile_id === profile?.id;
+                  
+                  return (
+                    <div
+                      key={message.id}
+                      className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div className={`max-w-xs p-3 rounded-lg ${
+                        isCurrentUser 
+                          ? 'bg-orange-500 text-white' 
+                          : 'bg-gray-100 text-gray-900'
                       }`}>
-                        {new Date(message.created_at).toLocaleString()}
-                      </p>
+                        {message.message_type === 'follow_up_call' && (
+                          <div className="flex items-center space-x-1 mb-1">
+                            <Calendar className="h-3 w-3" />
+                            <span className="text-xs font-medium">Follow-up Call</span>
+                          </div>
+                        )}
+                        <p className="text-sm">{message.content}</p>
+                        <p className={`text-xs mt-1 ${
+                          isCurrentUser ? 'text-orange-100' : 'text-gray-500'
+                        }`}>
+                          {new Date(message.created_at).toLocaleString()}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                );
-              })
+                  );
+                })}
+                <div ref={messagesEndRef} />
+              </>
             )}
           </div>
 
