@@ -97,7 +97,7 @@ const MentorChatList: React.FC = () => {
               .from('startups')
               .select('startup_name')
               .eq('profile_id', otherProfile.id)
-              .maybeSingle();
+              .single();
             startupName = startup?.startup_name;
           }
 
@@ -115,10 +115,8 @@ const MentorChatList: React.FC = () => {
           const lastMessage = messages && messages.length > 0 ? messages[0] : null;
           const messageCount = messages ? messages.length : 0;
           
-          // Count unread messages (messages from other person that we haven't read)
-          const unreadCount = messages ? messages.filter(m => 
-            m.sender_profile_id === otherProfile?.id
-          ).length : 0;
+          // Count unread messages (messages from other person)
+          const unreadCount = messages ? messages.filter(m => m.sender_profile_id === otherProfile?.id).length : 0;
 
           // Create display name
           let displayName = 'Unknown User';

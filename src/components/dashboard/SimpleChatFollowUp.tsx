@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -7,18 +7,7 @@ import { Input } from '@/components/ui/input';
 import { MessageSquare, Send, Calendar, Clock, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
-
-interface Message {
-  id: string;
-  content: string;
-  created_at: string;
-  sender_profile_id: string;
-  receiver_profile_id: string;
-  message_type: string;
-  follow_up_date?: string;
-  follow_up_time?: string;
-}
+import { useProfileChat } from '@/hooks/useProfileChat';
 
 interface SimpleChatFollowUpProps {
   conversationId?: string;
@@ -36,12 +25,10 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
   startupId
 }) => {
   const { profile } = useAuth();
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { messages, loading, sendMessage } = useProfileChat(conversationId || '');
   const [newMessage, setNewMessage] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [followUpTime, setFollowUpTime] = useState('');
-  const [currentConversationId, setCurrentConversationId] = useState<string | null>(conversationId || null);
 
   console.log('SimpleChatFollowUp: Initializing with props:', { 
     conversationId,
@@ -52,171 +39,11 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
     profile: !!profile 
   });
 
-  useEffect(() => {
-    if (currentConversationId) {
-      fetchMessages();
-    } else if (mentorId && startupId) {
-      findOrCreateConversation();
-    }
-  }, [currentConversationId, mentorId, startupId, profile?.id]);
-
-  const findOrCreateConversation = async () => {
-    if (!mentorId || !startupId || !profile?.id) return;
-
-    try {
-      setLoading(true);
-      console.log('SimpleChatFollowUp: Finding or creating conversation');
-
-      // Try to find existing conversation
-      const { data: existingConv } = await supabase
-        .from('conversations')
-        .select('id')
-        .eq('mentor_id', mentorId)
-        .eq('startup_id', startupId)
-        .maybeSingle();
-
-      if (existingConv) {
-        console.log('SimpleChatFollowUp: Found existing conversation:', existingConv.id);
-        setCurrentConversationId(existingConv.id);
-      } else {
-        // Create new conversation
-        const { data: newConv } = await supabase
-          .from('conversations')
-          .insert({
-            mentor_id: mentorId,
-            startup_id: startupId
-          })
-          .select('id')
-          .single();
-
-        if (newConv) {
-          console.log('SimpleChatFollowUp: Created new conversation:', newConv.id);
-          setCurrentConversationId(newConv.id);
-        }
-      }
-    } catch (error) {
-      console.error('Error finding/creating conversation:', error);
-      toast({
-        title: "Error",
-        description: "Failed to initialize conversation.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchMessages = async () => {
-    if (!currentConversationId) return;
-
-    try {
-      setLoading(true);
-      console.log('SimpleChatFollowUp: Fetching messages for conversation:', currentConversationId);
-
-      const { data: messagesData, error } = await supabase
-        .from('messages')
-        .select('id, content, created_at, sender_profile_id, receiver_profile_id, message_type, follow_up_date, follow_up_time')
-        .eq('conversation_id', currentConversationId)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching messages:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load messages.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      console.log('SimpleChatFollowUp: Fetched messages:', messagesData);
-      setMessages(messagesData || []);
-    } catch (error) {
-      console.error('Unexpected error fetching messages:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const sendMessage = async (content: string, messageType: string = 'message', followUpDate?: string, followUpTime?: string) => {
-    if (!currentConversationId || !profile?.id) {
-      toast({
-        title: "Error",
-        description: "Unable to send message. Please try again.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      // Determine receiver_profile_id based on current user
-      let receiverProfileId = otherProfileId;
-      
-      if (!receiverProfileId) {
-        // If we don't have otherProfileId, determine it from the conversation
-        const { data: conversation } = await supabase
-          .from('conversations')
-          .select('mentor_id, startup_id')
-          .eq('id', currentConversationId)
-          .single();
-
-        if (conversation) {
-          // If current user is the mentor, receiver is startup; if startup, receiver is mentor
-          receiverProfileId = conversation.mentor_id === profile.id ? conversation.startup_id : conversation.mentor_id;
-        }
-      }
-
-      const messageData = {
-        conversation_id: currentConversationId,
-        sender_profile_id: profile.id,
-        receiver_profile_id: receiverProfileId,
-        content,
-        message_type: messageType,
-        follow_up_date: followUpDate || null,
-        follow_up_time: followUpTime || null
-      };
-
-      console.log('SimpleChatFollowUp: Sending message:', messageData);
-
-      const { data, error } = await supabase
-        .from('messages')
-        .insert(messageData)
-        .select('id, content, created_at, sender_profile_id, receiver_profile_id, message_type, follow_up_date, follow_up_time')
-        .single();
-
-      if (error) {
-        console.error('Error sending message:', error);
-        toast({
-          title: "Error",
-          description: "Failed to send message. Please try again.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      console.log('SimpleChatFollowUp: Message sent successfully:', data);
-      
-      // Add the new message to the local state
-      setMessages(prev => [...prev, data]);
-      
-      toast({
-        title: "Message Sent",
-        description: "Your message has been sent successfully.",
-      });
-    } catch (error) {
-      console.error('Unexpected error sending message:', error);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
-
   const handleSendMessage = async () => {
     console.log('SimpleChatFollowUp: Attempting to send message:', {
       messageLength: newMessage.trim().length,
-      conversationId: currentConversationId
+      conversationId,
+      otherProfileId
     });
 
     if (!newMessage.trim()) {
@@ -228,6 +55,17 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
       return;
     }
 
+    if (!conversationId || !otherProfileId) {
+      console.error('SimpleChatFollowUp: Cannot send message - missing required IDs');
+      toast({
+        title: "Missing Information",
+        description: "Conversation information is required to send messages.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    console.log('SimpleChatFollowUp: Sending message via useProfileChat hook');
     await sendMessage(newMessage);
     setNewMessage('');
   };
@@ -236,7 +74,7 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
     console.log('SimpleChatFollowUp: Attempting to schedule follow-up:', {
       followUpDate,
       followUpTime,
-      conversationId: currentConversationId
+      conversationId
     });
 
     if (!followUpDate || !followUpTime) {
@@ -260,8 +98,7 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
     });
   };
 
-  // Show error if we don't have the required information
-  if (!currentConversationId && !mentorId && !startupId) {
+  if (!conversationId || !otherProfileId) {
     console.log('SimpleChatFollowUp: Rendering error state due to missing IDs');
     return (
       <div className="max-w-2xl mx-auto">
@@ -274,10 +111,12 @@ const SimpleChatFollowUp: React.FC<SimpleChatFollowUpProps> = ({
             </p>
             <div className="space-y-2 text-sm text-gray-600">
               <p><strong>Debug Info:</strong></p>
-              <p>Conversation ID: {currentConversationId || 'missing'}</p>
-              <p>Mentor ID: {mentorId || 'missing'}</p>
-              <p>Startup ID: {startupId || 'missing'}</p>
+              <p>Conversation ID: {conversationId || 'missing'}</p>
+              <p>Other Profile ID: {otherProfileId || 'missing'}</p>
               <p>Current Profile ID: {profile?.id || 'missing'}</p>
+              <p>User Role: {userRole || 'not specified'}</p>
+              <p>Mentor ID: {mentorId || 'not specified'}</p>
+              <p>Startup ID: {startupId || 'not specified'}</p>
             </div>
           </CardContent>
         </Card>

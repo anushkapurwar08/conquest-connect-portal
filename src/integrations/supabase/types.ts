@@ -302,7 +302,6 @@ export type Database = {
           follow_up_time: string | null
           id: string
           message_type: string | null
-          receiver_profile_id: string | null
           sender_profile_id: string | null
         }
         Insert: {
@@ -313,7 +312,6 @@ export type Database = {
           follow_up_time?: string | null
           id?: string
           message_type?: string | null
-          receiver_profile_id?: string | null
           sender_profile_id?: string | null
         }
         Update: {
@@ -324,7 +322,6 @@ export type Database = {
           follow_up_time?: string | null
           id?: string
           message_type?: string | null
-          receiver_profile_id?: string | null
           sender_profile_id?: string | null
         }
         Relationships: [
@@ -333,13 +330,6 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "messages_receiver_profile_id_fkey"
-            columns: ["receiver_profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
