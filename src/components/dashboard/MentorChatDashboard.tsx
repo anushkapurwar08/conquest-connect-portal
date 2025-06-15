@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Settings, Users, MessageSquare } from 'lucide-react';
-import SimplifiedChat from '@/components/chat/SimplifiedChat';
+import MentorChatList from './MentorChatList';
 import AdminSchedulingControls from '@/components/admin/AdminSchedulingControls';
 import CoachAssignmentManager from '@/components/admin/CoachAssignmentManager';
 import { useAuth } from '@/hooks/useAuth';
@@ -36,7 +36,7 @@ const MentorChatDashboard: React.FC = () => {
           </TabsList>
           
           <TabsContent value="chat" className="mt-6">
-            <SimplifiedChat userRole="mentor" />
+            <MentorChatList />
           </TabsContent>
           
           <TabsContent value="scheduling" className="mt-6">
@@ -48,7 +48,7 @@ const MentorChatDashboard: React.FC = () => {
           </TabsContent>
         </Tabs>
       ) : (
-        <SimplifiedChat userRole="mentor" />
+        <MentorChatList />
       )}
     </div>
   );
