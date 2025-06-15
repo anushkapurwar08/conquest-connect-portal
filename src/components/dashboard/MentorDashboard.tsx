@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { MessageSquare, Calendar, Users, TrendingUp, Clock, CheckCircle } from 'lucide-react';
 import ChatInterface from '@/components/chat/ChatInterface';
+import CallScheduler from '@/components/scheduling/CallScheduler';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -165,10 +166,18 @@ const MentorDashboard = () => {
       </div>
 
       {/* Main Dashboard Tabs */}
-      <Tabs defaultValue="sessions" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="sessions" className="flex items-center space-x-2">
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview" className="flex items-center space-x-2">
+            <TrendingUp className="h-4 w-4" />
+            <span>Overview</span>
+          </TabsTrigger>
+          <TabsTrigger value="scheduling" className="flex items-center space-x-2">
             <Calendar className="h-4 w-4" />
+            <span>Scheduling</span>
+          </TabsTrigger>
+          <TabsTrigger value="sessions" className="flex items-center space-x-2">
+            <Clock className="h-4 w-4" />
             <span>Sessions</span>
           </TabsTrigger>
           <TabsTrigger value="chat" className="flex items-center space-x-2">
@@ -177,43 +186,65 @@ const MentorDashboard = () => {
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="overview" className="mt-6">
+          <div className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Upcoming Sessions</CardTitle>
+                <CardDescription>Your next scheduled mentoring sessions</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {upcomingSessions.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No upcoming sessions scheduled</p>
+                    <p className="text-sm">Your sessions will appear here when startups book time with you</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {upcomingSessions.map((session) => {
+                      const sessionDate = new Date(session.scheduled_at);
+                      
+                      return (
+                        <div key={session.id} className="border rounded-lg p-4 hover:bg-accent">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h4 className="font-medium">{session.title}</h4>
+                              <p className="text-sm text-muted-foreground">
+                                with {session.startup_name}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {sessionDate.toLocaleDateString()} at {sessionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                            <Badge>{session.status}</Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="scheduling" className="mt-6">
+          <CallScheduler userRole="mentor" />
+        </TabsContent>
+
         <TabsContent value="sessions" className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Upcoming Sessions</CardTitle>
-              <CardDescription>Your scheduled mentoring sessions</CardDescription>
+              <CardTitle>Session Management</CardTitle>
+              <CardDescription>Manage your mentoring sessions and availability</CardDescription>
             </CardHeader>
             <CardContent>
-              {upcomingSessions.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No upcoming sessions scheduled</p>
-                  <p className="text-sm">Your sessions will appear here when startups book time with you</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {upcomingSessions.map((session) => {
-                    const sessionDate = new Date(session.scheduled_at);
-                    
-                    return (
-                      <div key={session.id} className="border rounded-lg p-4 hover:bg-accent">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h4 className="font-medium">{session.title}</h4>
-                            <p className="text-sm text-muted-foreground">
-                              with {session.startup_name}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {sessionDate.toLocaleDateString()} at {sessionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                          </div>
-                          <Badge>{session.status}</Badge>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              <div className="text-center py-8 text-muted-foreground">
+                <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Session management features</p>
+                <p className="text-sm">View and manage all your sessions here</p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
