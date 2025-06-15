@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Settings, Users, MessageSquare } from 'lucide-react';
@@ -13,8 +14,8 @@ const MentorChatDashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Chat</h2>
-        <p className="text-gray-600">Manage your conversations with anyone</p>
+        <h2 className="text-2xl font-bold text-gray-900">Mentor Chat</h2>
+        <p className="text-gray-600">Manage your conversations with startups</p>
       </div>
       
       {isTeamMember ? (
@@ -44,10 +45,6 @@ const MentorChatDashboard: React.FC = () => {
           
           <TabsContent value="assignments" className="mt-6">
             <CoachAssignmentManager />
-          </TabsContent>
-          
-          <TabsContent value="follow-up">
-            <MentorChatList />
           </TabsContent>
         </Tabs>
       ) : (

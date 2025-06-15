@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,13 +9,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 import SimpleChatFollowUp from './SimpleChatFollowUp';
-import NewChatModal from './NewChatModal';
 
 interface ConversationWithProfile {
   id: string;
   other_profile_id: string;
   other_profile_name: string;
   other_profile_role: string;
+  startup_name?: string;
   created_at: string;
   updated_at: string;
   last_message: string;
@@ -29,7 +30,6 @@ const MentorChatList: React.FC = () => {
   const [selectedConversation, setSelectedConversation] = useState<ConversationWithProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showNewChatModal, setShowNewChatModal] = useState(false);
 
   useEffect(() => {
     if (profile?.id) {
@@ -75,7 +75,7 @@ const MentorChatList: React.FC = () => {
       // Get profile details for each conversation participant
       const conversationsWithProfiles = await Promise.all(
         conversationsData.map(async (conv) => {
-          // Determine which profile is the 'other' person
+          // Determine which profile is the "other" person
           const otherProfileId = conv.mentor_id === profile.id ? conv.startup_id : conv.mentor_id;
           
           // Get the other person's profile
@@ -88,6 +88,17 @@ const MentorChatList: React.FC = () => {
           if (profileError) {
             console.error('Error fetching other profile:', profileError);
             return null;
+          }
+
+          // Get startup name if the other person is a startup
+          let startupName = null;
+          if (otherProfile?.role === 'startup') {
+            const { data: startup } = await supabase
+              .from('startups')
+              .select('startup_name')
+              .eq('profile_id', otherProfile.id)
+              .single();
+            startupName = startup?.startup_name;
           }
 
           // Get last message and count
@@ -122,6 +133,7 @@ const MentorChatList: React.FC = () => {
             other_profile_id: otherProfileId,
             other_profile_name: displayName,
             other_profile_role: otherProfile?.role || 'unknown',
+            startup_name: startupName,
             created_at: conv.created_at,
             updated_at: conv.updated_at,
             last_message: lastMessage ? 
@@ -153,39 +165,6 @@ const MentorChatList: React.FC = () => {
       otherProfileId: conversation.other_profile_id
     });
     setSelectedConversation(conversation);
-  };
-
-  const handleStartNewChat = async (otherProfileId: string) => {
-    // Check if conversation already exists
-    const { data: existing, error } = await supabase
-      .from('conversations')
-      .select('id')
-      .or(`mentor_id.eq.${profile.id},startup_id.eq.${otherProfileId}`)
-      .or(`mentor_id.eq.${otherProfileId},startup_id.eq.${profile.id}`)
-      .maybeSingle();
-    let conversationId = existing?.id;
-    if (!conversationId) {
-      // Create new conversation
-      const { data: newConv, error: createError } = await supabase
-        .from('conversations')
-        .insert({ mentor_id: profile.id, startup_id: otherProfileId })
-        .select('id')
-        .single();
-      conversationId = newConv?.id;
-    }
-    if (conversationId) {
-      // Find the new conversation and open it
-      const conv = conversations.find(c => c.id === conversationId);
-      if (conv) {
-        setSelectedConversation(conv);
-      } else {
-        // Refetch conversations to include the new one
-        await fetchConversations();
-        setSelectedConversation(
-          conversations.find(c => c.id === conversationId) || null
-        );
-      }
-    }
   };
 
   if (error) {
@@ -230,6 +209,7 @@ const MentorChatList: React.FC = () => {
           </Button>
           <div className="text-sm text-muted-foreground">
             Chatting with {selectedConversation.other_profile_name}
+            {selectedConversation.startup_name && ` from ${selectedConversation.startup_name}`}
           </div>
         </div>
         
@@ -247,21 +227,13 @@ const MentorChatList: React.FC = () => {
       <CardHeader>
         <CardTitle className="flex items-center space-x-2">
           <MessageSquare className="h-5 w-5" />
-          <span>Your Chats</span>
+          <span>Your Conversations</span>
         </CardTitle>
         <CardDescription>
           Your messages and conversations
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Button onClick={() => setShowNewChatModal(true)} className="mb-4 bg-orange-500 text-white">Start New Chat</Button>
-        {showNewChatModal && (
-          <NewChatModal
-            onClose={() => setShowNewChatModal(false)}
-            onStartChat={handleStartNewChat}
-            currentProfileId={profile.id}
-          />
-        )}
         {conversations.length === 0 ? (
           <div className="text-center py-8">
             <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300" />
@@ -298,6 +270,12 @@ const MentorChatList: React.FC = () => {
                             </Badge>
                           )}
                         </div>
+                        
+                        {conversation.startup_name && (
+                          <p className="text-sm font-medium text-gray-700 mb-1">
+                            {conversation.startup_name}
+                          </p>
+                        )}
                         
                         <Badge variant="outline" className="text-xs mb-2">
                           {conversation.other_profile_role}
