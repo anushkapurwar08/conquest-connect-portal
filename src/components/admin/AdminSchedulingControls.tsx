@@ -56,7 +56,7 @@ const AdminSchedulingControls: React.FC = () => {
       if (!existingToggles || existingToggles.length === 0) {
         console.log('No toggles found, creating default ones...');
         
-        const defaultToggles = [
+        const defaultToggles: Array<{ mentor_type: 'founder_mentor' | 'expert' | 'coach'; is_visible: boolean }> = [
           { mentor_type: 'founder_mentor', is_visible: true },
           { mentor_type: 'expert', is_visible: true },
           { mentor_type: 'coach', is_visible: true }
