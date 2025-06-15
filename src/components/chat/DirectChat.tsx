@@ -27,6 +27,7 @@ const DirectChat: React.FC<DirectChatProps> = ({ otherUserId, otherUserName, onB
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,6 +49,8 @@ const DirectChat: React.FC<DirectChatProps> = ({ otherUserId, otherUserName, onB
     if (!profile?.id || !otherUserId) return;
 
     try {
+      console.log('Fetching messages between:', profile.id, 'and', otherUserId);
+      
       const { data, error } = await supabase
         .from('messages')
         .select('*')
@@ -58,12 +61,23 @@ const DirectChat: React.FC<DirectChatProps> = ({ otherUserId, otherUserName, onB
 
       if (error) {
         console.error('Error fetching messages:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load messages. Please try again.",
+          variant: "destructive"
+        });
         return;
       }
 
+      console.log('Fetched messages:', data);
       setMessages(data || []);
     } catch (error) {
       console.error('Error fetching messages:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while loading messages.",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -71,6 +85,8 @@ const DirectChat: React.FC<DirectChatProps> = ({ otherUserId, otherUserName, onB
 
   const subscribeToMessages = () => {
     if (!profile?.id || !otherUserId) return;
+
+    console.log('Setting up realtime subscription for messages between:', profile.id, 'and', otherUserId);
 
     const channel = supabase
       .channel(`direct-chat-${profile.id}-${otherUserId}`)
@@ -83,54 +99,74 @@ const DirectChat: React.FC<DirectChatProps> = ({ otherUserId, otherUserName, onB
           filter: `or(and(sender_profile_id.eq.${profile.id},receiver_profile_id.eq.${otherUserId}),and(sender_profile_id.eq.${otherUserId},receiver_profile_id.eq.${profile.id}))`
         },
         (payload) => {
-          setMessages(current => [...current, payload.new as Message]);
+          console.log('New message received via realtime:', payload);
+          const newMsg = payload.new as Message;
+          setMessages(current => [...current, newMsg]);
         }
       )
       .subscribe();
 
     return () => {
+      console.log('Cleaning up realtime subscription');
       supabase.removeChannel(channel);
     };
   };
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !profile?.id || !otherUserId) {
+    if (!newMessage.trim() || !profile?.id || !otherUserId || sending) {
       return;
     }
 
+    setSending(true);
+    console.log('Sending message from:', profile.id, 'to:', otherUserId, 'content:', newMessage.trim());
+
     try {
-      const { error } = await supabase
+      const messageData = {
+        sender_profile_id: profile.id,
+        receiver_profile_id: otherUserId,
+        content: newMessage.trim(),
+        message_type: 'message'
+      };
+
+      console.log('Message data being sent:', messageData);
+
+      const { data, error } = await supabase
         .from('messages')
-        .insert({
-          sender_profile_id: profile.id,
-          receiver_profile_id: otherUserId,
-          content: newMessage.trim(),
-          message_type: 'message'
-        });
+        .insert(messageData)
+        .select()
+        .single();
 
       if (error) {
         console.error('Error sending message:', error);
         toast({
           title: "Error",
-          description: "Failed to send message. Please try again.",
+          description: `Failed to send message: ${error.message}`,
           variant: "destructive"
         });
         return;
       }
 
+      console.log('Message sent successfully:', data);
       setNewMessage('');
+      
+      // Add the message to local state immediately for better UX
+      if (data) {
+        setMessages(current => [...current, data]);
+      }
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('Unexpected error sending message:', error);
       toast({
         title: "Error",
         description: "An unexpected error occurred while sending the message.",
         variant: "destructive"
       });
+    } finally {
+      setSending(false);
     }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !sending) {
       e.preventDefault();
       handleSendMessage();
     }
@@ -210,13 +246,18 @@ const DirectChat: React.FC<DirectChatProps> = ({ otherUserId, otherUserName, onB
             onKeyPress={handleKeyPress}
             className="flex-1"
             rows={2}
+            disabled={sending}
           />
           <Button 
             onClick={handleSendMessage} 
-            disabled={!newMessage.trim()}
+            disabled={!newMessage.trim() || sending}
             className="bg-orange-500 hover:bg-orange-600"
           >
-            <Send className="h-4 w-4" />
+            {sending ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
           </Button>
         </div>
       </CardContent>

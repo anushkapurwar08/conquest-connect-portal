@@ -43,6 +43,8 @@ const UserList: React.FC<UserListProps> = ({ onSelectUser, selectedUserId }) => 
     if (!profile?.id) return;
 
     try {
+      console.log('Fetching users for user list, current user:', profile.id);
+      
       // Get all profiles except current user
       const { data: profiles, error } = await supabase
         .from('profiles')
@@ -53,6 +55,8 @@ const UserList: React.FC<UserListProps> = ({ onSelectUser, selectedUserId }) => 
         console.error('Error fetching users:', error);
         return;
       }
+
+      console.log('Fetched profiles:', profiles);
 
       // Get startup names for startup users
       const startupUsers = profiles?.filter(p => p.role === 'startup') || [];
@@ -78,6 +82,7 @@ const UserList: React.FC<UserListProps> = ({ onSelectUser, selectedUserId }) => 
         startup_name: startupNames[user.id]
       })) || [];
 
+      console.log('Users with startup names:', usersWithStartupNames);
       setUsers(usersWithStartupNames);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -119,6 +124,11 @@ const UserList: React.FC<UserListProps> = ({ onSelectUser, selectedUserId }) => 
       return `${user.first_name[0]}${user.last_name[0]}`;
     }
     return user.username.slice(0, 2).toUpperCase();
+  };
+
+  const handleUserClick = (user: UserProfile) => {
+    console.log('User selected:', user.id, getDisplayName(user));
+    onSelectUser(user.id, getDisplayName(user));
   };
 
   if (loading) {
@@ -199,7 +209,7 @@ const UserList: React.FC<UserListProps> = ({ onSelectUser, selectedUserId }) => 
                     ? 'bg-orange-50 border-orange-200'
                     : 'hover:bg-gray-50'
                 }`}
-                onClick={() => onSelectUser(user.id, getDisplayName(user))}
+                onClick={() => handleUserClick(user)}
               >
                 <Avatar className="h-10 w-10">
                   <AvatarFallback className="bg-orange-100 text-orange-600">
