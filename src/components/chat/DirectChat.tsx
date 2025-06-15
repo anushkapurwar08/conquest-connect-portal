@@ -29,17 +29,69 @@ const DirectChat: React.FC<DirectChatProps> = ({ otherUserId, otherUserName, onB
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const channelRef = useRef<any>(null);
 
   useEffect(() => {
     if (profile?.id && otherUserId) {
       fetchMessages();
-      subscribeToMessages();
+      setupRealtimeSubscription();
     }
+
+    return () => {
+      cleanupSubscription();
+    };
   }, [profile?.id, otherUserId]);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const cleanupSubscription = () => {
+    if (channelRef.current) {
+      console.log('Cleaning up realtime subscription');
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+  };
+
+  const setupRealtimeSubscription = () => {
+    if (!profile?.id || !otherUserId) return;
+
+    // Clean up any existing subscription first
+    cleanupSubscription();
+
+    console.log('Setting up realtime subscription for messages between:', profile.id, 'and', otherUserId);
+
+    const channelName = `direct-chat-${[profile.id, otherUserId].sort().join('-')}`;
+    
+    channelRef.current = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages'
+        },
+        (payload) => {
+          console.log('New message received via realtime:', payload);
+          const newMsg = payload.new as Message;
+          
+          // Only add message if it's part of this conversation
+          if ((newMsg.sender_profile_id === profile.id && newMsg.receiver_profile_id === otherUserId) ||
+              (newMsg.sender_profile_id === otherUserId && newMsg.receiver_profile_id === profile.id)) {
+            setMessages(current => {
+              // Avoid duplicates
+              if (current.find(msg => msg.id === newMsg.id)) {
+                return current;
+              }
+              return [...current, newMsg];
+            });
+          }
+        }
+      )
+      .subscribe();
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -83,35 +135,6 @@ const DirectChat: React.FC<DirectChatProps> = ({ otherUserId, otherUserName, onB
     }
   };
 
-  const subscribeToMessages = () => {
-    if (!profile?.id || !otherUserId) return;
-
-    console.log('Setting up realtime subscription for messages between:', profile.id, 'and', otherUserId);
-
-    const channel = supabase
-      .channel(`direct-chat-${profile.id}-${otherUserId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `or(and(sender_profile_id.eq.${profile.id},receiver_profile_id.eq.${otherUserId}),and(sender_profile_id.eq.${otherUserId},receiver_profile_id.eq.${profile.id}))`
-        },
-        (payload) => {
-          console.log('New message received via realtime:', payload);
-          const newMsg = payload.new as Message;
-          setMessages(current => [...current, newMsg]);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      console.log('Cleaning up realtime subscription');
-      supabase.removeChannel(channel);
-    };
-  };
-
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !profile?.id || !otherUserId || sending) {
       return;
@@ -121,6 +144,39 @@ const DirectChat: React.FC<DirectChatProps> = ({ otherUserId, otherUserName, onB
     console.log('Sending message from:', profile.id, 'to:', otherUserId, 'content:', newMessage.trim());
 
     try {
+      // First verify that both profile IDs exist
+      const { data: senderExists } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', profile.id)
+        .single();
+
+      const { data: receiverExists } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', otherUserId)
+        .single();
+
+      if (!senderExists) {
+        console.error('Sender profile not found:', profile.id);
+        toast({
+          title: "Error",
+          description: "Your profile was not found. Please refresh and try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!receiverExists) {
+        console.error('Receiver profile not found:', otherUserId);
+        toast({
+          title: "Error",
+          description: "Recipient profile not found. Please refresh and try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+
       const messageData = {
         sender_profile_id: profile.id,
         receiver_profile_id: otherUserId,
@@ -148,11 +204,6 @@ const DirectChat: React.FC<DirectChatProps> = ({ otherUserId, otherUserName, onB
 
       console.log('Message sent successfully:', data);
       setNewMessage('');
-      
-      // Add the message to local state immediately for better UX
-      if (data) {
-        setMessages(current => [...current, data]);
-      }
     } catch (error) {
       console.error('Unexpected error sending message:', error);
       toast({
