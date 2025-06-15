@@ -144,39 +144,6 @@ const DirectChat: React.FC<DirectChatProps> = ({ otherUserId, otherUserName, onB
     console.log('Sending message from:', profile.id, 'to:', otherUserId, 'content:', newMessage.trim());
 
     try {
-      // First verify that both profile IDs exist
-      const { data: senderExists } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', profile.id)
-        .single();
-
-      const { data: receiverExists } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', otherUserId)
-        .single();
-
-      if (!senderExists) {
-        console.error('Sender profile not found:', profile.id);
-        toast({
-          title: "Error",
-          description: "Your profile was not found. Please refresh and try again.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      if (!receiverExists) {
-        console.error('Receiver profile not found:', otherUserId);
-        toast({
-          title: "Error",
-          description: "Recipient profile not found. Please refresh and try again.",
-          variant: "destructive"
-        });
-        return;
-      }
-
       const messageData = {
         sender_profile_id: profile.id,
         receiver_profile_id: otherUserId,
@@ -194,16 +161,45 @@ const DirectChat: React.FC<DirectChatProps> = ({ otherUserId, otherUserName, onB
 
       if (error) {
         console.error('Error sending message:', error);
-        toast({
-          title: "Error",
-          description: `Failed to send message: ${error.message}`,
-          variant: "destructive"
-        });
+        
+        // More specific error handling
+        if (error.code === '23503') {
+          if (error.message.includes('sender_profile_id')) {
+            toast({
+              title: "Error",
+              description: "Your profile was not found. Please refresh and try again.",
+              variant: "destructive"
+            });
+          } else if (error.message.includes('receiver_profile_id')) {
+            toast({
+              title: "Error",
+              description: "Recipient profile not found. Please refresh and try again.",
+              variant: "destructive"
+            });
+          } else {
+            toast({
+              title: "Error",
+              description: "Profile validation failed. Please refresh and try again.",
+              variant: "destructive"
+            });
+          }
+        } else {
+          toast({
+            title: "Error",
+            description: `Failed to send message: ${error.message}`,
+            variant: "destructive"
+          });
+        }
         return;
       }
 
       console.log('Message sent successfully:', data);
       setNewMessage('');
+      
+      // Add the message optimistically to the UI
+      if (data) {
+        setMessages(current => [...current, data as Message]);
+      }
     } catch (error) {
       console.error('Unexpected error sending message:', error);
       toast({
