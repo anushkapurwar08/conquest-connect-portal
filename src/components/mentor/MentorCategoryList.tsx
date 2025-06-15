@@ -3,10 +3,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { MessageSquare, Building, AlertCircle, EyeOff } from 'lucide-react';
+import { MessageSquare, Building, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { useSchedulingRules } from '@/hooks/useSchedulingRules';
 
 interface MentorData {
   id: string;
@@ -51,90 +50,10 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
   const [mentors, setMentors] = useState<ProcessedMentor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  const { isMentorTypeVisible, loading: rulesLoading } = useSchedulingRules();
-
-  // Helper functions - moved to top to avoid hoisting issues
-  const getCategoryTitle = () => {
-    switch (mentorType) {
-      case 'founder_mentor':
-        return 'Founder Mentors';
-      case 'expert':
-        return 'Industry Experts';
-      case 'coach':
-        return 'Executive Coaches';
-      default:
-        return 'Mentors';
-    }
-  };
-
-  const getCategoryDescription = () => {
-    switch (mentorType) {
-      case 'founder_mentor':
-        return 'Experienced founders who have built and scaled companies';
-      case 'expert':
-        return 'Subject matter experts with deep domain knowledge';
-      case 'coach':
-        return 'Professional coaches focused on leadership and personal development';
-      default:
-        return 'Professional mentors';
-    }
-  };
-
-  const getTypeSpecific = (type: string): string => {
-    switch (type) {
-      case 'founder_mentor':
-        return 'Serial Entrepreneur';
-      case 'expert':
-        return 'Industry Expert';
-      case 'coach':
-        return 'Executive Coach';
-      default:
-        return 'Mentor';
-    }
-  };
-
-  const getAvailability = (type: string): string => {
-    switch (type) {
-      case 'founder_mentor':
-        return 'Limited slots';
-      case 'expert':
-        return 'Available this week';
-      case 'coach':
-        return 'Recurring sessions';
-      default:
-        return 'Available';
-    }
-  };
 
   useEffect(() => {
     fetchMentors();
   }, [mentorType]);
-
-  // Check if this mentor type is visible to users
-  const isVisible = isMentorTypeVisible(mentorType);
-
-  // If mentor type is not visible, show admin message
-  if (!rulesLoading && !isVisible) {
-    return (
-      <div className="space-y-4">
-        <div>
-          <h3 className="text-xl font-semibold">{getCategoryTitle()}</h3>
-          <p className="text-muted-foreground text-sm">{getCategoryDescription()}</p>
-        </div>
-        <div className="text-center py-8">
-          <EyeOff className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">This mentor category is currently unavailable</h3>
-          <p className="text-muted-foreground mb-4">
-            {getCategoryTitle()} are temporarily hidden by administrators.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Please check back later or contact support if you need assistance.
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   const fetchMentors = async () => {
     try {
@@ -241,6 +160,58 @@ const MentorCategoryList: React.FC<MentorCategoryListProps> = ({
         description: "Failed to select mentor. Please try again.",
         variant: "destructive"
       });
+    }
+  };
+
+  const getTypeSpecific = (type: string): string => {
+    switch (type) {
+      case 'founder_mentor':
+        return 'Serial Entrepreneur';
+      case 'expert':
+        return 'Industry Expert';
+      case 'coach':
+        return 'Executive Coach';
+      default:
+        return 'Mentor';
+    }
+  };
+
+  const getAvailability = (type: string): string => {
+    switch (type) {
+      case 'founder_mentor':
+        return 'Limited slots';
+      case 'expert':
+        return 'Available this week';
+      case 'coach':
+        return 'Recurring sessions';
+      default:
+        return 'Available';
+    }
+  };
+
+  const getCategoryTitle = () => {
+    switch (mentorType) {
+      case 'founder_mentor':
+        return 'Founder Mentors';
+      case 'expert':
+        return 'Industry Experts';
+      case 'coach':
+        return 'Executive Coaches';
+      default:
+        return 'Mentors';
+    }
+  };
+
+  const getCategoryDescription = () => {
+    switch (mentorType) {
+      case 'founder_mentor':
+        return 'Experienced founders who have built and scaled companies';
+      case 'expert':
+        return 'Subject matter experts with deep domain knowledge';
+      case 'coach':
+        return 'Professional coaches focused on leadership and personal development';
+      default:
+        return 'Professional mentors';
     }
   };
 

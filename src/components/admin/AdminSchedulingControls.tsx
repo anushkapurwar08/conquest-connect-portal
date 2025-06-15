@@ -32,87 +32,24 @@ const AdminSchedulingControls: React.FC = () => {
   const { profile } = useAuth();
 
   useEffect(() => {
-    initializeMentorToggles();
+    fetchMentorToggles();
     fetchBookingWindows();
   }, []);
 
-  const initializeMentorToggles = async () => {
+  const fetchMentorToggles = async () => {
     try {
-      console.log('Initializing mentor toggles...');
-      
-      // First check if we have any mentor toggles
-      const { data: existingToggles, error: fetchError } = await supabase
+      const { data, error } = await supabase
         .from('mentor_toggles')
         .select('*')
         .order('mentor_type');
 
-      if (fetchError) {
-        console.error('Error fetching existing toggles:', fetchError);
-      }
-
-      console.log('Existing toggles:', existingToggles);
-
-      // If no toggles exist, create default ones
-      if (!existingToggles || existingToggles.length === 0) {
-        console.log('No toggles found, creating default ones...');
-        
-        const defaultToggles: Array<{ mentor_type: 'founder_mentor' | 'expert' | 'coach'; is_visible: boolean }> = [
-          { mentor_type: 'founder_mentor', is_visible: true },
-          { mentor_type: 'expert', is_visible: true },
-          { mentor_type: 'coach', is_visible: true }
-        ];
-
-        const { data: createdToggles, error: createError } = await supabase
-          .from('mentor_toggles')
-          .insert(defaultToggles)
-          .select('*');
-
-        if (createError) {
-          console.error('Error creating default toggles:', createError);
-          toast({
-            title: "Error",
-            description: "Failed to initialize mentor toggles.",
-            variant: "destructive"
-          });
-          return;
-        }
-
-        console.log('Created default toggles:', createdToggles);
-        setMentorToggles(createdToggles || []);
-      } else {
-        // Check if all three mentor types exist, if not add missing ones
-        const existingTypes = existingToggles.map(t => t.mentor_type);
-        const requiredTypes: ('founder_mentor' | 'expert' | 'coach')[] = ['founder_mentor', 'expert', 'coach'];
-        const missingTypes = requiredTypes.filter(type => !existingTypes.includes(type));
-
-        if (missingTypes.length > 0) {
-          console.log('Missing types found:', missingTypes);
-          
-          const missingToggles = missingTypes.map(type => ({
-            mentor_type: type,
-            is_visible: true
-          }));
-
-          const { data: newToggles, error: insertError } = await supabase
-            .from('mentor_toggles')
-            .insert(missingToggles)
-            .select('*');
-
-          if (insertError) {
-            console.error('Error inserting missing toggles:', insertError);
-          } else {
-            console.log('Created missing toggles:', newToggles);
-            setMentorToggles([...existingToggles, ...(newToggles || [])]);
-          }
-        } else {
-          setMentorToggles(existingToggles);
-        }
-      }
+      if (error) throw error;
+      setMentorToggles(data || []);
     } catch (error) {
-      console.error('Error initializing mentor toggles:', error);
+      console.error('Error fetching mentor toggles:', error);
       toast({
         title: "Error",
-        description: "Failed to initialize mentor visibility settings.",
+        description: "Failed to fetch mentor visibility settings.",
         variant: "destructive"
       });
     }
@@ -120,24 +57,12 @@ const AdminSchedulingControls: React.FC = () => {
 
   const fetchBookingWindows = async () => {
     try {
-      console.log('Fetching booking windows...');
-      
       const { data, error } = await supabase
         .from('booking_windows')
         .select('*')
         .order('day_of_week');
 
-      if (error) {
-        console.error('Error fetching booking windows:', error);
-        toast({
-          title: "Error",
-          description: "Failed to fetch booking windows.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      console.log('Booking windows:', data);
+      if (error) throw error;
       setBookingWindows(data || []);
     } catch (error) {
       console.error('Error fetching booking windows:', error);
@@ -153,8 +78,6 @@ const AdminSchedulingControls: React.FC = () => {
 
   const toggleMentorVisibility = async (mentorType: 'founder_mentor' | 'expert' | 'coach', isVisible: boolean) => {
     try {
-      console.log('Toggling mentor visibility:', mentorType, isVisible);
-      
       const { error } = await supabase
         .from('mentor_toggles')
         .update({ 
@@ -164,23 +87,19 @@ const AdminSchedulingControls: React.FC = () => {
         })
         .eq('mentor_type', mentorType);
 
-      if (error) {
-        console.error('Error updating mentor toggle:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      // Update local state
       setMentorToggles(prev => 
         prev.map(toggle => 
           toggle.mentor_type === mentorType 
-            ? { ...toggle, is_visible: isVisible, updated_at: new Date().toISOString() }
+            ? { ...toggle, is_visible: isVisible }
             : toggle
         )
       );
 
       toast({
         title: "Success",
-        description: `${getMentorTypeDisplay(mentorType)} visibility updated successfully.`
+        description: `${mentorType.replace('_', ' ')} visibility updated successfully.`
       });
     } catch (error) {
       console.error('Error updating mentor toggle:', error);
@@ -258,43 +177,31 @@ const AdminSchedulingControls: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {mentorToggles.length === 0 ? (
-              <div className="text-center py-4">
-                <p className="text-muted-foreground">No mentor toggles found.</p>
-                <Button 
-                  onClick={initializeMentorToggles}
-                  className="mt-2"
-                >
-                  Initialize Toggles
-                </Button>
-              </div>
-            ) : (
-              mentorToggles.map((toggle) => (
-                <div key={toggle.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <Badge variant="outline">
-                      {getMentorTypeDisplay(toggle.mentor_type)}
-                    </Badge>
-                    <span className="text-sm text-muted-foreground">
-                      {toggle.mentor_type === 'expert' && 'Admin controlled visibility'}
-                      {toggle.mentor_type === 'founder_mentor' && 'Weekly slot display'}
-                      {toggle.mentor_type === 'coach' && 'Assignment-based visibility'}
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm">
-                      {toggle.is_visible ? 'Visible' : 'Hidden'}
-                    </span>
-                    <Switch
-                      checked={toggle.is_visible}
-                      onCheckedChange={(checked) => 
-                        toggleMentorVisibility(toggle.mentor_type, checked)
-                      }
-                    />
-                  </div>
+            {mentorToggles.map((toggle) => (
+              <div key={toggle.id} className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <Badge variant="outline">
+                    {getMentorTypeDisplay(toggle.mentor_type)}
+                  </Badge>
+                  <span className="text-sm text-muted-foreground">
+                    {toggle.mentor_type === 'expert' && 'Admin controlled visibility'}
+                    {toggle.mentor_type === 'founder_mentor' && 'Weekly slot display'}
+                    {toggle.mentor_type === 'coach' && 'Assignment-based visibility'}
+                  </span>
                 </div>
-              ))
-            )}
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm">
+                    {toggle.is_visible ? 'Visible' : 'Hidden'}
+                  </span>
+                  <Switch
+                    checked={toggle.is_visible}
+                    onCheckedChange={(checked) => 
+                      toggleMentorVisibility(toggle.mentor_type, checked)
+                    }
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
@@ -309,36 +216,30 @@ const AdminSchedulingControls: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {bookingWindows.length === 0 ? (
-              <div className="text-center py-4">
-                <p className="text-muted-foreground">No booking windows configured.</p>
-              </div>
-            ) : (
-              bookingWindows.map((window) => (
-                <div key={window.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <Calendar className="h-4 w-4 text-orange-500" />
-                    <div>
-                      <div className="font-medium">{window.name}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {getDayName(window.day_of_week)} {window.start_time} - {window.end_time}
-                      </div>
+            {bookingWindows.map((window) => (
+              <div key={window.id} className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <Calendar className="h-4 w-4 text-orange-500" />
+                  <div>
+                    <div className="font-medium">{window.name}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {getDayName(window.day_of_week)} {window.start_time} - {window.end_time}
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Badge variant={window.is_active ? 'default' : 'secondary'}>
-                      {window.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
-                    <Switch
-                      checked={window.is_active}
-                      onCheckedChange={(checked) => 
-                        updateBookingWindow(window.id, checked)
-                      }
-                    />
-                  </div>
                 </div>
-              ))
-            )}
+                <div className="flex items-center space-x-2">
+                  <Badge variant={window.is_active ? 'default' : 'secondary'}>
+                    {window.is_active ? 'Active' : 'Inactive'}
+                  </Badge>
+                  <Switch
+                    checked={window.is_active}
+                    onCheckedChange={(checked) => 
+                      updateBookingWindow(window.id, checked)
+                    }
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
